@@ -13,6 +13,11 @@ import { ButtonLink } from '@/components/ui/Button';
 
 export const dynamic = 'force-dynamic';
 
+/** Label mata kuliah untuk baris lama yang belum punya nilai (kolom nullable). */
+function courseLabel(course: string | null): string {
+  return course && course.length > 0 ? course : 'Tanpa mata kuliah';
+}
+
 /**
  * Daftar tugas dengan filter `?status=active|completed|archived` (§10).
  *
@@ -52,11 +57,24 @@ export default async function TasksPage({
     { status: 'archived' as const, label: 'Arsip', href: '/tasks?status=archived' },
   ];
 
+  /*
+   * Jumlah tugas yang ditampilkan, bukan satu angka diam: jelas bahwa satu orang
+   * bisa punya banyak tugas sekaligus dan semuanya terdaftar di sini.
+   */
+  const count =
+    tasks.length === 0
+      ? null
+      : `${tasks.length} ${TASK_STATUS_LABEL[status].toLowerCase()}`;
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Tugas"
-        description="Tugas aktif, riwayat yang selesai, dan arsip."
+        description={
+          count
+            ? `${count}. Tenggat di zona waktu kelas.`
+            : 'Tugas aktif, riwayat yang selesai, dan arsip.'
+        }
         action={canManage ? <ButtonLink href="/tasks/new">Buat tugas</ButtonLink> : undefined}
       />
 
@@ -86,7 +104,7 @@ export default async function TasksPage({
             title="Tidak ada tugas aktif"
             description={
               canManage
-                ? 'Buat tugas agar anggota tahu apa yang harus dikerjakan.'
+                ? 'Buat tugas agar anggota tahu apa yang harus dikerjakan. Kamu bisa membuat sebanyak-banyaknya tugas.'
                 : 'Tugas baru akan muncul di sini.'
             }
             action={canManage ? { href: '/tasks/new', label: 'Buat tugas' } : undefined}
@@ -117,7 +135,8 @@ export default async function TasksPage({
                   </Badge>
                 </div>
                 <p className="text-small text-text-muted">
-                  {formatDateTime(task.deadline, timezone)} · {task.target}
+                  {courseLabel(task.course)} · {formatDateTime(task.deadline, timezone)} ·{' '}
+                  {task.target}
                 </p>
                 <Link href={`/tasks/${task.id}`} className="mt-1 text-small text-primary underline">
                   Lihat tugas

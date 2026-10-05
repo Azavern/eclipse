@@ -4,13 +4,12 @@ import { Section, List, ListItem } from '@/components/ui/Section';
 import { EmptyState } from '@/components/ui/States';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { StorageImage } from '@/components/storage/StorageImage';
+import { createClient } from '@/lib/supabase/server';
+import { signMany } from '@/lib/storage/sign';
 import { formatDay, formatTime, zoneLabel } from '@/lib/time';
 import type { UpcomingEntry } from '@/features/home/queries';
-import type {
-  ActivityTrendRow,
-  HomeOverview,
-  MemberProfileSummary,
-} from '@/lib/supabase/database.types';
+import type { ActivityTrendRow, HomeOverview } from '@/lib/supabase/database.types';
+import type { RecentMemberSummary } from '@/features/home/queries';
 
 /**
  * Komponen section Home. Semua Server Component; tidak ada state klien
@@ -267,7 +266,7 @@ export function ActivityTrend({ rows, timezone }: { rows: ActivityTrendRow[]; ti
   );
 }
 
-export function MembersStrip({ members }: { members: MemberProfileSummary[] }) {
+export async function MembersStrip({ members }: { members: RecentMemberSummary[] }) {
   if (members.length === 0) {
     return (
       <EmptyState
@@ -276,6 +275,14 @@ export function MembersStrip({ members }: { members: MemberProfileSummary[] }) {
       />
     );
   }
+
+  // Satu batch untuk seluruh strip, bukan satu permintaan per anggota.
+  const supabase = await createClient();
+  const signedAvatars = await signMany(
+    supabase,
+    'member-media',
+    members.map((m) => m.avatar_path),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -286,7 +293,12 @@ export function MembersStrip({ members }: { members: MemberProfileSummary[] }) {
               href={`/members/${m.username}`}
               className="flex flex-col items-center gap-1 rounded-md p-1 transition-func hover:opacity-80"
             >
-              <AvatarFromPath path={m.avatar_path} name={m.full_name} size="lg" />
+              <AvatarFromPath
+                path={m.avatar_path}
+                signedUrl={m.avatar_path ? signedAvatars.get(m.avatar_path) : undefined}
+                name={m.full_name}
+                size="lg"
+              />
               <span className="max-w-24 truncate text-caption text-text">{m.full_name}</span>
             </Link>
           </li>

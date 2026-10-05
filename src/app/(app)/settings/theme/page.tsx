@@ -3,6 +3,7 @@ import { getClassTheme } from '@/features/class/queries';
 import { ThemeEditor } from '@/features/theme/components/ThemeEditor';
 import { PageHeader } from '@/components/ui/Section';
 import { NoAccess } from '@/components/ui/States';
+import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,8 @@ export default async function SettingsThemePage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsBackLink />
+
       <PageHeader
         title="Tema kelas"
         description="Warna dan tata letak yang dipakai seluruh aplikasi. Semua kombinasi teks diperiksa terhadap rasio kontras minimal 4,5:1."

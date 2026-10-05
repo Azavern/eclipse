@@ -7,6 +7,7 @@ import {
 } from '@/features/visibility/components/VisibilityEditor';
 import { PageHeader } from '@/components/ui/Section';
 import { NoAccess } from '@/components/ui/States';
+import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,8 +34,10 @@ export default async function SettingsVisibilityPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsBackLink />
+
       <PageHeader
-        title="Visibilitas"
+        title="Aturan visibilitas"
         description="Atur siapa yang boleh melihat setiap bagian. Bagian yang tidak terlihat tidak pernah dirender — bukan disembunyikan dengan CSS."
       />
 

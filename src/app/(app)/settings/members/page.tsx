@@ -5,6 +5,7 @@ import { getManagedMembers } from '@/features/member/actions';
 import { MembersManager } from '@/features/member/components/MembersManager';
 import { PageHeader } from '@/components/ui/Section';
 import { NoAccess } from '@/components/ui/States';
+import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,8 @@ export default async function SettingsMembersPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsBackLink />
+
       <PageHeader
         title="Anggota"
         description="Undang anggota baru, nonaktifkan yang tidak aktif lagi, atau hapus beserta seluruh isinya."

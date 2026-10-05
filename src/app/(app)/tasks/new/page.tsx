@@ -22,7 +22,7 @@ export default async function NewTaskPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Buat tugas"
-        description="Tenggat diisi dalam zona waktu kelas; sistem menyimpannya dalam UTC."
+        description="Satu isian untuk satu tugas. Kamu bisa membuat tugas sebanyak-banyaknya; setiap tugas berdiri sendiri."
       />
 
       <div className="max-w-form">

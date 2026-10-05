@@ -2,6 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserId } from '@/lib/visibility/server';
 
 export type SocialLinkRow = {
   id: string;
@@ -42,9 +43,7 @@ export const getMemberSocialLinks = cache(
 
 /** Tautan milik viewer sendiri, untuk form di `/settings/profile`. */
 export const getMySocialLinks = cache(async (): Promise<SocialLinkRow[]> => {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const userId = await getCurrentUserId();
   if (!userId) return [];
 
   return getMemberSocialLinks(userId);

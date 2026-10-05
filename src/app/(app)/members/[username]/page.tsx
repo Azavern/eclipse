@@ -1,15 +1,16 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { canShow, requireView } from '@/lib/visibility/server';
 import { getMemberByUsername } from '@/features/member/queries';
-import { getMemberPortfolio } from '@/features/portfolio/queries';
-import { getMemberSocialLinks } from '@/features/social/queries';
+import { MemberPortfolioSection } from '@/features/portfolio/components/MemberPortfolioSection';
+import { MemberSocialSection } from '@/features/social/components/MemberSocialSection';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
-import { PortfolioList } from '@/features/portfolio/components/PortfolioList';
-import { SocialLinks } from '@/features/social/components/SocialLinks';
 import { PageHeader, Section } from '@/components/ui/Section';
 import { Badge } from '@/components/ui/Badge';
 import { formatDateTime } from '@/lib/time';
 import { getClassIdentity } from '@/features/class/queries';
+import { SkeletonSectionTitle } from '@/components/ui/Skeleton';
+import { SectionBoundary } from '@/components/ui/SectionBoundary';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,23 +34,21 @@ export default async function MemberProfilePage({
   await requireView('page.members', '/members');
 
   const { username } = await params;
-  const member = await getMemberByUsername(username);
-  if (!member) notFound();
 
-  const [showPortfolio, showSocial, identity] = await Promise.all([
+  // Profil, peta visibilitas, dan identitas kelas tidak bergantung satu sama
+  // lain: diambil dalam satu ronde, bukan tiga ronde berurutan.
+  const [member, showPortfolio, showSocial, identity] = await Promise.all([
+    getMemberByUsername(username),
     canShow('section.member.portfolio'),
     canShow('section.member.social'),
     getClassIdentity(),
   ]);
+  if (!member) notFound();
+
   const timezone = identity?.timezone ?? 'Asia/Jakarta';
 
-  // Query konten hanya dijalankan kalau sectionnya boleh dilihat, supaya tidak
-  // mengambil baris yang memang tidak akan dirender.
-  const [portfolio, socialLinks] = await Promise.all([
-    showPortfolio ? getMemberPortfolio(member.user_id) : Promise.resolve([]),
-    showSocial ? getMemberSocialLinks(member.user_id) : Promise.resolve([]),
-  ]);
-
+  // Query konten diambil oleh section-nya sendiri saat sudah boleh dilihat,
+  // jadi tidak ada baris yang diambil lalu tidak dirender.
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title={member.full_name} description={`@${member.username}`} />
@@ -80,15 +79,19 @@ export default async function MemberProfilePage({
       ) : null}
 
       {showPortfolio ? (
-        <Section title="Portofolio" description="Proyek, prestasi, dan pengalaman.">
-          <PortfolioList items={portfolio} />
-        </Section>
+        <SectionBoundary title="Portofolio gagal dimuat">
+          <Suspense fallback={<SkeletonSectionTitle rows={3} />}>
+            <MemberPortfolioSection userId={member.user_id} />
+          </Suspense>
+        </SectionBoundary>
       ) : null}
 
       {showSocial ? (
-        <Section title="Tautan sosial">
-          <SocialLinks links={socialLinks} />
-        </Section>
+        <SectionBoundary title="Tautan sosial gagal dimuat">
+          <Suspense fallback={<SkeletonSectionTitle rows={2} />}>
+            <MemberSocialSection userId={member.user_id} />
+          </Suspense>
+        </SectionBoundary>
       ) : null}
     </div>
   );

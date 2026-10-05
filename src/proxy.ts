@@ -20,6 +20,13 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set('content-security-policy', csp);
 
   let response = NextResponse.next({ request: { headers: requestHeaders } });
+  // Tanpa cookie sesi tidak ada JWT yang perlu divalidasi, jadi panggilan ke
+  // Auth server dilewati: halaman masuk dan beranda anonim hemat satu network
+  // round trip per request. Jalur dengan cookie sesi tidak berubah.
+  if (!hasSessionCookie(request)) {
+    response.headers.set('content-security-policy', csp);
+    return response;
+  }
 
   const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
@@ -47,6 +54,28 @@ export async function proxy(request: NextRequest) {
 
   response.headers.set('content-security-policy', csp);
   return response;
+}
+
+/**
+ * Apakah request ini membawa cookie sesi Supabase.
+ *
+ * `@supabase/ssr` memecah cookie sesi yang panjang menjadi beberapa bagian, dan
+ * setiap bagian diberi sufiks `.0`, `.1`, dst. Jadi pencocokan harus menerima
+ * nama utuh (`sb-<ref>-auth-token`) maupun nama pecahan
+ * (`sb-<ref>-auth-token.0`) — kalau hanya yang utuh, sesi panjang malah
+ * diperlakukan sebagai anonim dan tidak pernah di-refresh.
+ *
+ * Nama cookie tidak ditulis persis di sini supaya tetap sinkron dengan konfigurasi
+ * storage default `@supabase/ssr`.
+ */
+function hasSessionCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some((cookie) => {
+    if (!cookie.name.startsWith('sb-')) return false;
+    if (cookie.name.endsWith('-auth-token')) return true;
+    // Pecahan cookie: `...-auth-token.0`, `...-auth-token.1`, dan seterusnya.
+    const dot = cookie.name.lastIndexOf('.');
+    return dot !== -1 && cookie.name.slice(0, dot).endsWith('-auth-token');
+  });
 }
 
 function buildCsp(nonce: string): string {

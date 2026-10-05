@@ -20,7 +20,7 @@ export function AvatarUpload() {
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Foto profil tersimpan." />
 
       <FormField id="avatar" label="Foto profil" error={fileError} required>
         {(describedBy) => (

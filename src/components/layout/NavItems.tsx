@@ -7,6 +7,21 @@ export type NavItem = {
 };
 
 /**
+ * Entri "Pengaturan".
+ *
+ * Dipisah dari `NAV_ITEMS` karena tidak punya visibility key halaman: yang
+ * menentukan kelihatannya adalah apakah viewer punya izin apa pun, bukan
+ * aturan visibilitas halaman (§10.1). `href` menunjuk `/settings` — bukan
+ * `/settings/profile` langsung — supaya entri ini tetap aktif di seluruh
+ * `/settings/**` (§16) dan hanya membutuhkan satu rute pengalihan.
+ */
+export const SETTINGS_NAV_ITEM = {
+  href: '/settings',
+  label: 'Pengaturan',
+  key: 'settings',
+} as const;
+
+/**
  * Satu daftar untuk SidebarNav dan BottomNav, supaya transformasi navigasi
  * benar-benar memakai komponen yang sama (§16).
  *
@@ -20,6 +35,10 @@ export type NavItem = {
  *
  * Setiap item punya `key` page untuk pemeriksaan visibility, sehingga menu
  * otomatis menyesuaikan tampilannya (§10.1).
+ *
+ * Daftar ini dipakai SidebarNav (desktop) DAN BottomNav (mobile) — navigasi
+ * bertransformasi, bukan menyusut (§16). `SETTINGS_NAV_ITEM` masuk ke daftar
+ * yang sama supaya pengaturan tetap bisa dibuka di kedua ukuran layar.
  */
 export const NAV_ITEMS = [
   { href: '/', label: 'Beranda', key: 'page.home' },
@@ -37,8 +56,8 @@ export const NAV_ITEMS = [
 export type NavKey = (typeof NAV_ITEMS)[number]['key'];
 
 /**
- * Bentuk item nav yang sudah dipersempit ke enam key nyata. Prop navigasi memakai
+ * Bentuk item nav yang sudah dipersempit ke key nyata. Prop navigasi memakai
  * tipe ini, bukan `NavItem`, supaya `NAV_ICONS` bisa diindeks tanpa `any` —
  * dan supaya menambah item baru tetap menuntut ikonnya.
  */
-export type NavEntry = (typeof NAV_ITEMS)[number];
+export type NavEntry = (typeof NAV_ITEMS)[number] | typeof SETTINGS_NAV_ITEM;

@@ -2,20 +2,22 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, LogOut, Settings, UserRound } from 'lucide-react';
+import { ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { Disclosure, DisclosureItem } from '@/components/ui/Disclosure';
 import { Avatar } from '@/components/ui/Avatar';
 import type { ViewerData } from '@/lib/visibility/types';
 import { signOut } from '@/features/auth/actions';
 
 /**
- * Menu pengguna. Grup admin (Pengaturan) hanya muncul bila memang punya izin,
- * bukan disembunyikan lalu masih bisa dijangkau lewat URL (§10.1).
+ * Menu pengguna: identitas dan keluar.
+ *
+ * "Pengaturan" TIDAK ada di sini — ia item navigasi seperti halaman lain, jadi
+ * ada di sidebar (desktop) dan bottom nav (mobile), dan hanya muncul untuk
+ * viewer yang punya izin (§10.1). Yang tetap ada di sini adalah "Profil saya":
+ * pintasan ke profil milik viewer sendiri, bukan area pengaturan.
  */
 export function UserMenu({ viewer }: { viewer: ViewerData }) {
   const router = useRouter();
-
-  const hasAnyPermission = viewer.permissions.length > 0;
 
   return (
     <Disclosure
@@ -41,18 +43,6 @@ export function UserMenu({ viewer }: { viewer: ViewerData }) {
             <UserRound aria-hidden="true" className="size-4" />
             Profil saya
           </Link>
-
-          {hasAnyPermission ? (
-            <Link
-              href="/settings"
-              role="menuitem"
-              onClick={close}
-              className="flex min-h-11 items-center gap-2 rounded-sm px-3 py-2 text-body text-text transition-func hover:bg-surface-dim"
-            >
-              <Settings aria-hidden="true" className="size-4" />
-              Pengaturan
-            </Link>
-          ) : null}
 
           <DisclosureItem
             onSelect={async () => {

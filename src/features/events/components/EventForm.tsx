@@ -202,7 +202,7 @@ export function CreateEventForm() {
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Event tersimpan." />
       <EventFields defaults={EMPTY} values={values} errors={errors} />
       <CoverField error={errors?.cover?.[0]} />
       <SubmitButton pendingLabel="Menyimpan…">Simpan event</SubmitButton>
@@ -232,7 +232,7 @@ export function EditEventForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <FormStatus state={removeState} />
+      <FormStatus state={removeState} successMessage="Event dihapus." />
 
       <form action={action} className="flex flex-col gap-5">
         <input type="hidden" name="id" value={id} />

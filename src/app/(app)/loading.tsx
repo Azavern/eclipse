@@ -1,28 +1,19 @@
-import { Skeleton, SkeletonList, SkeletonText } from '@/components/ui/Skeleton';
+import { SkeletonListPage } from '@/components/ui/Skeleton';
 
 /**
- * Loading memakai Skeleton yang bentuknya sama dengan konten sebenarnya, bukan
- * spinner layar penuh (§15.1). Tanpa animasi: skeleton -> konten 0 ms (§11.4).
+ * Fallback terakhir untuk route di grup `(app)` yang tidak punya `loading.tsx`
+ * sendiri.
+ *
+ * Route utama punya fallback khusus yang mengikuti bentuk halamannya (lihat
+ * file `loading.tsx` di tiap route), jadi yang di sini sengaja dibuat netral:
+ * judul halaman + judul section + daftar baris. Bentuk netral ini lebih jujur
+ * daripada memakai skeleton khas Home untuk semua halaman.
  */
 export default function Loading() {
   return (
-    <div className="flex flex-col gap-10" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Memuat beranda…</span>
-
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-10 w-2/3" />
-        <SkeletonText lines={2} />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-6 w-40" />
-        <SkeletonList rows={3} />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-6 w-40" />
-        <SkeletonList rows={3} />
-      </div>
+    <div aria-busy="true" aria-live="polite">
+      <span className="sr-only">Memuat…</span>
+      <SkeletonListPage rows={3} />
     </div>
   );
 }

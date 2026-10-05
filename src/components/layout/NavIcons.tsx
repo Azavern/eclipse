@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Home,
   School,
+  Settings,
   Sparkles,
   Users,
   type LucideIcon,
@@ -24,11 +25,12 @@ import type { NavKey } from './NavItems';
  * menambah permintaan jaringan dan melanggar aturan privasi "tanpa skrip pihak
  * ketiga" (§23).
  */
-export const NAV_ICONS: Record<NavKey, LucideIcon> = {
+export const NAV_ICONS: Record<NavKey | 'settings', LucideIcon> = {
   'page.home': Home,
   'page.schedule': CalendarDays,
   'page.events': Sparkles,
   'page.tasks': ClipboardList,
   'page.members': Users,
   'page.class_about': School,
+  settings: Settings,
 };

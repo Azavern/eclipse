@@ -6,6 +6,7 @@ import { ClassImageUpload } from '@/features/class/components/ClassImageUpload';
 import { StorageImage } from '@/components/storage/StorageImage';
 import { PageHeader, Section } from '@/components/ui/Section';
 import { NoAccess } from '@/components/ui/States';
+import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,8 @@ export default async function SettingsClassPage() {
     return <NoAccess message="Pengaturan kelas hanya untuk pengelola kelas." backHref="/" />;
   }
 
-  const klass = await getEditableClass();
-  const links = await getClassLinks();
+  // Keduanya independen: satu ronde, bukan dua.
+  const [klass, links] = await Promise.all([getEditableClass(), getClassLinks()]);
   if (!klass) {
     return (
       <NoAccess
@@ -36,6 +37,8 @@ export default async function SettingsClassPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsBackLink />
+
       <PageHeader
         title="Identitas kelas"
         description="Nama, kode, deskripsi, dan zona waktu yang dipakai semua halaman."

@@ -1,22 +1,22 @@
-import { requireView, canShow, getViewer } from '@/lib/visibility/server';
-import { getClassIdentity } from '@/features/class/queries';
-import {
-  getActivityTrend,
-  getHomeOverview,
-  getRecentMembers,
-  getUpcoming,
-} from '@/features/home/queries';
+import { Suspense } from 'react';
+import { requireView, canShow } from '@/lib/visibility/server';
+import { getClassIdentity, getClassTheme } from '@/features/class/queries';
 import { HOME_LAYOUTS, mobileOrderClass } from '@/features/home/layouts';
+import { HomeHero } from '@/features/home/components/HomeSections';
 import {
-  ActivityTrend,
-  HomeHero,
-  HomeSection,
-  MembersStrip,
-  OverviewStats,
-  UpcomingList,
-} from '@/features/home/components/HomeSections';
-import { ButtonLink } from '@/components/ui/Button';
-import { getClassTheme } from '@/features/class/queries';
+  ActivitySlot,
+  MembersSlot,
+  OverviewSlot,
+  UpcomingSlot,
+} from '@/features/home/components/HomeSlots';
+import { SectionBoundary } from '@/components/ui/SectionBoundary';
+import {
+  SkeletonActivity,
+  SkeletonAvatarStrip,
+  SkeletonSectionShell,
+  SkeletonSectionTitle,
+  SkeletonStats,
+} from '@/components/ui/Skeleton';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,15 +29,16 @@ export const dynamic = 'force-dynamic';
  *
  * Setiap section di-gate dengan key-nya sendiri dan TIDAK DIRENDER sama sekali
  * saat tidak boleh dilihat — bukan disembunyikan dengan CSS (§7.8).
+ *
+ * Halaman hanya menunggu apa yang dibutuhkan shell: identitas kelas, tema, dan
+ * peta visibilitas. Data tiap section diambil oleh slot-nya sendiri dan dibuka
+ * lewat `<Suspense>`, jadi section yang sudah siap tampil duluan (streaming)
+ * dan satu section yang gagal tidak menjatuhkan halaman ini.
  */
 export default async function HomePage() {
   await requireView('page.home', '/');
 
-  const [viewer, identity, theme] = await Promise.all([
-    getViewer(),
-    getClassIdentity(),
-    getClassTheme(),
-  ]);
+  const [identity, theme] = await Promise.all([getClassIdentity(), getClassTheme()]);
 
   if (!identity) {
     return (
@@ -60,18 +61,11 @@ export default async function HomePage() {
 
   const anyUpcoming = showSchedule || showEvents || showTasks;
 
-  // Data diambil hanya untuk section yang dirender; tidak ada query sia-sia.
-  const [upcoming, overview, trend, members] = await Promise.all([
-    anyUpcoming ? getUpcoming() : Promise.resolve([]),
-    showOverview ? getHomeOverview() : Promise.resolve(null),
-    showActivity ? getActivityTrend() : Promise.resolve([]),
-    showMembers ? getRecentMembers() : Promise.resolve([]),
-  ]);
-
   // Urutan section mengikuti preset layout yang dipilih Ketua (§18).
   const sections = HOME_LAYOUTS[theme.layout];
+  const timezone = identity.timezone;
 
-  const rendered: Record<string, React.ReactNode> = {
+  const slots: Record<string, React.ReactNode> = {
     identity: showIdentity ? (
       <HomeHero
         name={identity.name}
@@ -84,72 +78,39 @@ export default async function HomePage() {
       />
     ) : null,
 
-    // Tiga daftar bersekat: jadwal | tugas | event. Urutan mengikuti prioritas
-    // mobile PRD — tugas naik ke atas jadwal (AC-HOME-2, §16).
     upcoming: anyUpcoming ? (
-      <div className="flex flex-col gap-8">
-        {showSchedule ? (
-          <HomeSection
-            title="Jadwal"
-            description="Jadwal kuliah dan kegiatan kelas."
-            action={<ButtonLink href="/schedule" variant="ghost" size="md">Buka jadwal</ButtonLink>}
-          >
-            <UpcomingList
-              entries={upcoming.filter((e) => e.kind === 'schedule')}
-              timezone={identity.timezone}
-              canManage={viewer.can('schedule.manage')}
-            />
-          </HomeSection>
-        ) : null}
-
-        {showTasks ? (
-          <HomeSection
-            title="Tugas"
-            description="Tugas dengan tenggat terdekat."
-            action={<ButtonLink href="/tasks" variant="ghost" size="md">Buka tugas</ButtonLink>}
-          >
-            <UpcomingList
-              entries={upcoming.filter((e) => e.kind === 'task')}
-              timezone={identity.timezone}
-              canManage={viewer.can('tasks.manage')}
-            />
-          </HomeSection>
-        ) : null}
-
-        {showEvents ? (
-          <HomeSection
-            title="Event"
-            description="Event mendatang."
-            action={<ButtonLink href="/events" variant="ghost" size="md">Buka event</ButtonLink>}
-          >
-            <UpcomingList
-              entries={upcoming.filter((e) => e.kind === 'event')}
-              timezone={identity.timezone}
-              canManage={viewer.can('events.manage')}
-            />
-          </HomeSection>
-        ) : null}
-      </div>
+      <UpcomingSlot
+        timezone={timezone}
+        show={{ schedule: showSchedule, tasks: showTasks, events: showEvents }}
+      />
     ) : null,
 
-    overview:
-      showOverview && overview ? (
-        <HomeSection title="Ringkasan" description="Angka agregat kelas minggu ini.">
-          <OverviewStats overview={overview} />
-        </HomeSection>
-      ) : null,
+    overview: showOverview ? <OverviewSlot /> : null,
+    activity: showActivity ? <ActivitySlot timezone={timezone} /> : null,
+    members: showMembers ? <MembersSlot /> : null,
+  };
 
-    activity: showActivity ? (
-      <HomeSection title="Aktivitas" description="Jumlah kejadian dalam 4 minggu terakhir.">
-        <ActivityTrend rows={trend} timezone={identity.timezone} />
-      </HomeSection>
-    ) : null,
+  // Fallback tiap section mengikuti bentuk konten section aslinya supaya tidak
+  // ada lompatan layout saat data tiba.
 
-    members: showMembers ? (
-      <HomeSection title="Anggota" description="Anggota yang terbaru bergabung.">
-        <MembersStrip members={members} />
-      </HomeSection>
-    ) : null,
+  const fallbacks: Record<string, React.ReactNode> = {
+    identity: <SkeletonHero />,
+    upcoming: <SkeletonSectionTitle rows={3} />,
+    overview: (
+      <SkeletonSectionShell>
+        <SkeletonStats />
+      </SkeletonSectionShell>
+    ),
+    activity: (
+      <SkeletonSectionShell>
+        <SkeletonActivity />
+      </SkeletonSectionShell>
+    ),
+    members: (
+      <SkeletonSectionShell>
+        <SkeletonAvatarStrip />
+      </SkeletonSectionShell>
+    ),
   };
 
   return (
@@ -157,19 +118,37 @@ export default async function HomePage() {
       {sections.map((key) =>
         // `mobileOrderClass` mengatur urutan mobile sesuai PRD; `lg:order-none`
         // mengembalikan desktop ke urutan preset yang dipilih Ketua (§16).
-        rendered[key] ? (
+        slots[key] ? (
           <div key={key} className={`lg:order-none ${mobileOrderClass(key)}`}>
-            {rendered[key]}
+            <SectionBoundary>
+              <Suspense fallback={fallbacks[key] ?? <SkeletonSectionTitle rows={2} />}>
+                {slots[key]}
+              </Suspense>
+            </SectionBoundary>
           </div>
         ) : null,
       )}
 
       {/* Fallback ketika preset tidak menghasilkan section sama sekali. */}
-      {sections.every((key) => !rendered[key]) ? (
+      {sections.every((key) => !slots[key]) ? (
         <p className="text-body text-text-muted">
           Tidak ada bagian yang bisa ditampilkan untuk akunmu saat ini.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+/** Cover + nama + deskripsi, mengikuti `HomeHero`. */
+function SkeletonHero() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-4">
+      <div className="h-40 w-full rounded-md md:h-52" />
+      <div className="flex flex-col gap-2">
+        <div className="h-10 w-2/3 rounded-sm bg-surface-dim" />
+        <div className="h-5 w-1/2 rounded-sm bg-surface-dim" />
+        <div className="h-4 w-4/5 rounded-sm bg-surface-dim" />
+      </div>
     </div>
   );
 }

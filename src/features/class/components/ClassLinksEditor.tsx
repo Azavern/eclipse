@@ -48,7 +48,7 @@ function AddLinkForm() {
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Tautan kelas ditambahkan." />
 
       <FormField id="new-link-platform" label="Platform" error={first('platform')} required>
         {(describedBy) => (
@@ -122,7 +122,7 @@ function ClassLinkRowEditor({ link }: { link: ClassLinkRow }) {
 
   return (
     <div className="flex flex-col gap-3 border-t border-border-subtle py-4 first:border-t-0">
-      <FormStatus state={removeState} />
+      <FormStatus state={removeState} successMessage="Tautan kelas dihapus." />
 
       <form action={updateAction} className="flex flex-col gap-4">
         <input type="hidden" name="id" value={link.id} />
@@ -184,7 +184,7 @@ function ClassLinkRowEditor({ link }: { link: ClassLinkRow }) {
           )}
         </FormField>
 
-        <FormStatus state={updateState} />
+        <FormStatus state={updateState} successMessage="Tautan kelas tersimpan." />
 
         <div className="flex flex-wrap gap-2">
           <SubmitButton pendingLabel="Menyimpan…" size="md">

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getViewer } from '@/lib/visibility/server';
 import { ChangePasswordForm } from '@/features/auth/components/ChangePasswordForm';
 import { PageHeader, Section } from '@/components/ui/Section';
+import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,9 @@ export default async function SettingsAccountPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Akun" description="Kata sandi dan keamanan akunmu." />
+      <SettingsBackLink />
+
+      <PageHeader title="Akun & kata sandi" description="Kata sandi dan keamanan akunmu." />
 
       {!viewer.isActiveMember ? (
         // Banner saja, bukan `NoAccess`: halaman ini memang bisa dipakai.

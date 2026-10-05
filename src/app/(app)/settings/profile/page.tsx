@@ -1,16 +1,22 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import { getViewer, getMemberVisibilityRules, getVisibilityMap } from '@/lib/visibility/server';
+import { getViewer } from '@/lib/visibility/server';
 import { getMyProfile } from '@/features/member/queries';
-import { getMyPortfolio } from '@/features/portfolio/queries';
-import { getMySocialLinks } from '@/features/social/queries';
+import { SocialLinksSection } from '@/features/social/components/SocialLinksSection';
+import { PortfolioSection } from '@/features/portfolio/components/PortfolioSection';
+import { MyVisibilitySection } from '@/features/member/components/MyVisibilitySection';
 import { ProfileForm } from '@/features/member/components/ProfileForm';
 import { AvatarUpload } from '@/features/member/components/AvatarUpload';
-import { MemberVisibilityEditor } from '@/features/member/components/MemberVisibilityEditor';
-import { PortfolioEditor } from '@/features/portfolio/components/PortfolioEditor';
-import { SocialLinksEditor } from '@/features/social/components/SocialLinksEditor';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { PageHeader, Section } from '@/components/ui/Section';
 import { NoAccess } from '@/components/ui/States';
+import {
+  SkeletonForm,
+  SkeletonList,
+  SkeletonSectionShell,
+} from '@/components/ui/Skeleton';
+import { SectionBoundary } from '@/components/ui/SectionBoundary';
+import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,18 +27,27 @@ export const dynamic = 'force-dynamic';
  * profil, jadi halaman ini tidak sekadar mengecek `isSignedIn`.
  *
  * `?onboarding=1` dipakai `setPassword` setelah aktivasi lewat tautan akses.
+ *
+ * Foto dan Informasi menunggu profil sendiri karena keduanya menampilkannya.
+ * Tiga section sisanya (tautan sosial, portofolio, visibilitas) dirender sebagai
+ * slot `<Suspense>` + `SectionBoundary`: section yang datanya sudah siap tampil
+ * duluan, dan kegagalan satu section tidak menjatuhkan halaman ini.
  */
 export default async function SettingsProfilePage({
   searchParams,
 }: {
   searchParams: Promise<{ onboarding?: string }>;
 }) {
-  const viewer = await getViewer();
-  const userId = viewer.userId;
+  // Ketiganya independen: sesi, parameter URL, dan profil sendiri diambil
+  // bersamaan. `getViewer`/`getMyProfile` berbagi satu validasi JWT lewat
+  // `getCurrentUserId` yang di-cache per request.
+  const [viewer, { onboarding }, profile] = await Promise.all([
+    getViewer(),
+    searchParams,
+    getMyProfile(),
+  ]);
 
-  // `userId` dipakai lagi di bawah untuk membaca aturan visibilitas milik sendiri,
-  // jadi sesi dicek sekali di sini, bukan lewat pemeriksaan terpisah.
-  if (!viewer.isSignedIn || !userId) redirect('/login?next=%2Fsettings%2Fprofile');
+  if (!viewer.isSignedIn || !viewer.userId) redirect('/login?next=%2Fsettings%2Fprofile');
   if (!viewer.isActiveMember) {
     return (
       <NoAccess
@@ -42,7 +57,6 @@ export default async function SettingsProfilePage({
     );
   }
 
-  const profile = await getMyProfile();
   if (!profile) {
     return (
       <NoAccess
@@ -53,23 +67,12 @@ export default async function SettingsProfilePage({
     );
   }
 
-  const [{ onboarding }, portfolio, socialLinks, visibilityMap, ownRules] = await Promise.all([
-    searchParams,
-    getMyPortfolio(),
-    getMySocialLinks(),
-    getVisibilityMap(),
-    getMemberVisibilityRules(userId),
-  ]);
   const justActivated = onboarding === '1';
-
-  // Aturan milik anggota sendiri: nilai kosong berarti "pakai bawaan katalog",
-  // jadi Select menampilkan opsi bawaan, bukan nilai effective yang sudah dipangkas.
-  const visibilityInitial = Object.fromEntries(
-    Object.entries(ownRules).map(([key, audience]) => [key, audience ?? '']),
-  );
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsBackLink />
+
       <PageHeader
         title="Profil saya"
         description="Nama, username, bio, dan foto profil yang dilihat anggota lain."
@@ -106,26 +109,38 @@ export default async function SettingsProfilePage({
           </div>
         </Section>
 
-        <Section
-          title="Tautan sosial"
-          description="Tautan kontak dan media sosial yang muncul di profilmu."
-        >
-          <SocialLinksEditor links={socialLinks} map={visibilityMap} />
-        </Section>
+        <SectionBoundary title="Tautan sosial gagal dimuat">
+          <Suspense fallback={<SkeletonEditorSection fields={2} />}>
+            <SocialLinksSection />
+          </Suspense>
+        </SectionBoundary>
 
-        <Section title="Portofolio" description="Proyek, prestasi, dan pengalaman yang kamu tampilkan.">
-          <PortfolioEditor items={portfolio} map={visibilityMap} />
-        </Section>
+        <SectionBoundary title="Portofolio gagal dimuat">
+          <Suspense fallback={<SkeletonEditorSection fields={3} />}>
+            <PortfolioSection />
+          </Suspense>
+        </SectionBoundary>
 
-        <Section
-          title="Visibilitas profil"
-          description="Atur siapa yang boleh melihat bagian profilmu. Aturan kelas tetap menjadi batas terluar."
-        >
-          <div className="max-w-form">
-            <MemberVisibilityEditor initial={visibilityInitial} map={visibilityMap} />
-          </div>
-        </Section>
+        <SectionBoundary title="Visibilitas profil gagal dimuat">
+          <Suspense fallback={<SkeletonEditorSection fields={5} />}>
+            <MyVisibilitySection />
+          </Suspense>
+        </SectionBoundary>
       </div>
     </div>
+  );
+}
+
+/**
+ * Fallback streamed: judul section + isi daftar. Section yang gagal tampil
+ * sebagai daftar baris, bukan form, karena baris-baris itu yang muncul begitu
+ * data tiba (tautan, item portofolio, pilihan visibilitas).
+ */
+function SkeletonEditorSection({ fields }: { fields: number }) {
+  return (
+    <SkeletonSectionShell>
+      <SkeletonForm fields={fields} />
+      <SkeletonList rows={2} />
+    </SkeletonSectionShell>
   );
 }

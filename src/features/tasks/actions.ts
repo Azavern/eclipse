@@ -19,6 +19,7 @@ function str(fd: FormData, key: string): string {
 function readForm(fd: FormData): Record<string, string> {
   return {
     title: str(fd, 'title'),
+    course: str(fd, 'course'),
     description: str(fd, 'description'),
     deadline: str(fd, 'deadline'),
     target: str(fd, 'target'),
@@ -59,6 +60,14 @@ function mappedFailure(
   return fail({ code: 'unknown', message: 'Tugas tidak tersimpan. Coba lagi.' }, values);
 }
 
+/**
+ * Simpan tugas baru.
+ *
+ * Selalu INSERT: satu orang boleh punya banyak tugas sekaligus, dan tiap tugas
+ * adalah baris sendiri. Tidak ada jalur di sini yang menulis ke `id` yang sudah
+ * ada — perubahan isi tugas ditangani `updateTask`, yang hanya dipanggil dari
+ * halaman `/tasks/[id]/edit`.
+ */
 export async function createTask(_prev: FormState, fd: FormData): Promise<FormState> {
   const gate = await requirePermission('tasks.manage');
   if (!gate) return forbidden();
@@ -85,6 +94,7 @@ export async function createTask(_prev: FormState, fd: FormData): Promise<FormSt
     .insert({
       class_id: context.classId,
       title: parsed.data.title,
+      course: parsed.data.course,
       description: parsed.data.description,
       deadline: parsed.data.deadline,
       target: parsed.data.target,
@@ -102,6 +112,7 @@ export async function createTask(_prev: FormState, fd: FormData): Promise<FormSt
   redirect(`/tasks/${inserted[0].id}`);
 }
 
+/** Ubah isi satu tugas yang sudah ada; hanya dipanggil dari form ubah. */
 export async function updateTask(_prev: FormState, fd: FormData): Promise<FormState> {
   const gate = await requirePermission('tasks.manage');
   if (!gate) return forbidden();
@@ -132,6 +143,7 @@ export async function updateTask(_prev: FormState, fd: FormData): Promise<FormSt
     .from('tasks')
     .update({
       title: parsed.data.title,
+      course: parsed.data.course,
       description: parsed.data.description,
       deadline: parsed.data.deadline,
       target: parsed.data.target,

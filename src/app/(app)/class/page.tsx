@@ -18,7 +18,21 @@ export const dynamic = 'force-dynamic';
 export default async function ClassPage() {
   await requireView('page.class_about', '/class');
 
-  const identity = await getClassIdentity();
+  // Identitas, peta visibilitas, dan tautan diambil dalam satu ronde. Tautan
+  // sendiri sudah disaring RLS menurut `section.class.links`, jadi Aman
+  // dipanggil tanpa menunggu keputusan `canShow` — viewer yang tidak berhak
+  // menerima 0 baris, bukan tautan yang bocor.
+  const [identity, showCode, showTagline, showDescription, showHighlight, showLinks, links] =
+    await Promise.all([
+      getClassIdentity(),
+      canShow('field.class.code'),
+      canShow('field.class.tagline'),
+      canShow('field.class.description'),
+      canShow('field.class.highlight'),
+      canShow('section.class.links'),
+      getClassLinks(),
+    ]);
+
   if (!identity) {
     return (
       <p className="text-body text-text-muted">
@@ -27,16 +41,8 @@ export default async function ClassPage() {
     );
   }
 
-  const [showCode, showTagline, showDescription, showHighlight, showLinks] = await Promise.all([
-    canShow('field.class.code'),
-    canShow('field.class.tagline'),
-    canShow('field.class.description'),
-    canShow('field.class.highlight'),
-    canShow('section.class.links'),
-  ]);
-
-  // Query tautan hanya kalau sectionnya boleh dilihat.
-  const links = showLinks ? await getClassLinks() : [];
+  // Section yang tidak terlihat tidak boleh dirender, walaupun RLS mengizinkan.
+  const visibleLinks = showLinks ? links : [];
 
   return (
     <div className="flex flex-col gap-8">
@@ -87,11 +93,11 @@ export default async function ClassPage() {
 
       {showLinks ? (
         <Section title="Tautan kelas" description="Kontak dan media sosial kelas.">
-          {links.length === 0 ? (
+          {visibleLinks.length === 0 ? (
             <p className="py-4 text-small text-text-muted">Belum ada tautan yang ditambahkan.</p>
           ) : (
             <List>
-              {links.map((link) => (
+              {visibleLinks.map((link) => (
                 <ListItem key={link.id}>
                   <a
                     href={link.url}

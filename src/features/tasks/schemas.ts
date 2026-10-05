@@ -21,20 +21,32 @@ export function toTaskStatus(raw: string | undefined): TaskStatusName {
   return TASK_STATUSES.find((s) => s === raw) ?? 'active';
 }
 
-/** Sasaran default saat isian dikosongkan (A-13, §14.2). */
-export const DEFAULT_TASK_TARGET = 'Seluruh kelas';
+/**
+ * Sasaran yang boleh dipilih. `target` tetap label teks informasional, bukan
+ * assignment per orang (A-13), tetapi nilainya dibatasi ke daftar ini supaya
+ * tugas tidak bisa ditulis dengan sasaran bebas yang salah ketik.
+ *
+ * Kolomnya tidak diubah ke enum karena nilainya sudah tersimpan dan dibaca
+ * beberapa halaman; daftar ini adalah satu-satunya sumber kebenaran di aplikasi.
+ */
+export const TASK_TARGETS = ['Seluruh kelas', 'Ketua', 'Anggota', 'Hanya aku'] as const;
+export type TaskTarget = (typeof TASK_TARGETS)[number];
+
+/** Sasaran default; sama dengan default kolom di DB (A-13, §14.2). */
+export const DEFAULT_TASK_TARGET: TaskTarget = 'Seluruh kelas';
 
 /**
  * Skema tugas. Factory karena `deadline` adalah waktu dinding tanpa zona dan
  * konversinya butuh timezone kelas (§14.4).
  *
  * Batas disalin dari CHECK `tasks`: `title` 1–120, `description` ≤ 2000,
- * `target` 1–80.
+ * `target` 1–80, `course` 1–80.
  */
 export function buildTaskSchema(timezone: string) {
   return z
     .object({
       title: requiredText(1, 120, 'Judul'),
+      course: requiredText(1, 80, 'Mata kuliah'),
       description: optionalText(2000, 'Deskripsi'),
       deadline: z
         .string()
@@ -45,7 +57,11 @@ export function buildTaskSchema(timezone: string) {
         .string()
         .trim()
         .max(80, 'Sasaran maksimal 80 karakter')
-        .transform((v) => (v.length === 0 ? DEFAULT_TASK_TARGET : v)),
+        .transform((v) => (v.length === 0 ? DEFAULT_TASK_TARGET : v))
+        .refine(
+          (v): v is TaskTarget => TASK_TARGETS.includes(v as TaskTarget),
+          'Sasaran tidak dikenal',
+        ),
       url: optionalText(2048, 'Tautan').refine(
         (v) => v === null || HTTPS_URL.safeParse(v).success,
         'Tautan harus berupa URL https yang valid',

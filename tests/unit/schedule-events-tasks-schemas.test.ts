@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildScheduleSchema, SCHEDULE_TYPES } from '@/features/schedule/schemas';
 import { buildEventSchema } from '@/features/events/schemas';
-import { buildTaskSchema, DEFAULT_TASK_TARGET, toTaskStatus } from '@/features/tasks/schemas';
+import {
+  buildTaskSchema,
+  DEFAULT_TASK_TARGET,
+  TASK_TARGETS,
+  toTaskStatus,
+} from '@/features/tasks/schemas';
 import { formatTimeRange, isValidLocalInput } from '@/lib/time';
 
 const TZ = 'Asia/Jakarta';
@@ -108,6 +113,7 @@ describe('buildEventSchema', () => {
 
 const validTask = {
   title: 'Kumpulkan laporan',
+  course: 'Basis Data',
   description: null,
   deadline: '2026-10-07T23:59',
   target: 'Seluruh kelas',
@@ -133,6 +139,34 @@ describe('buildTaskSchema', () => {
     expect(
       buildTaskSchema(TZ).safeParse({ ...validTask, deadline: '2026-04-31T10:00' }).success,
     ).toBe(false);
+  });
+
+  it('menyimpan mata kuliah yang diisi', () => {
+    const parsed = buildTaskSchema(TZ).safeParse({ ...validTask, course: '  Basis Data  ' });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.course).toBe('Basis Data');
+  });
+
+  it('menolak mata kuliah kosong karena tugas harus menyebut mata kuliahnya', () => {
+    expect(buildTaskSchema(TZ).safeParse({ ...validTask, course: '' }).success).toBe(false);
+    expect(buildTaskSchema(TZ).safeParse({ ...validTask, course: '   ' }).success).toBe(false);
+    expect(buildTaskSchema(TZ).safeParse({ ...validTask, course: 'a'.repeat(81) }).success).toBe(
+      false,
+    );
+  });
+
+  it('menerima setiap sasaran dari daftar dan menolak teks bebas', () => {
+    for (const target of TASK_TARGETS) {
+      expect(buildTaskSchema(TZ).safeParse({ ...validTask, target }).success, target).toBe(true);
+    }
+    // Ditulis manual lewat request-craftedFormData tidak boleh lolos.
+    expect(buildTaskSchema(TZ).safeParse({ ...validTask, target: 'Kelompok A' }).success).toBe(
+      false,
+    );
+    expect(buildTaskSchema(TZ).safeParse({ ...validTask, target: 'seluruh kelas' }).success).toBe(
+      false,
+    );
   });
 });
 

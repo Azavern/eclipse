@@ -71,7 +71,7 @@ export function MemberVisibilityEditor({
 
   return (
     <form action={action} className="flex flex-col gap-6">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Aturan visibilitas tersimpan." />
 
       <div className="flex flex-col">
         {MEMBER_SCOPE_KEYS.map((key) => {

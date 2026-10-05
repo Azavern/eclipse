@@ -2,7 +2,7 @@
 //
 // CATATAN PENTING: file ini SEHARUSNYA hasil `supabase gen types typescript`.
 // Di lingkungan ini CLI tidak dapat menjangkau proyek (butuh access token /
-// Docker), sehingga file ini ditulis manual dari migration 0001-0002 dan harus
+// Docker), sehingga file ini ditulis manual dari migration 0001-0009 dan harus
 // di-regenerate sebelum deploy:
 //     pnpm db:types
 // Lihat docs/STATUS.md.
@@ -219,6 +219,8 @@ export type Task = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Migration 0009; nullable supaya baris lama tidak perlu dipalsukan. */
+  course: string | null;
 }
 
 export type VisibilityCatalogRow = {

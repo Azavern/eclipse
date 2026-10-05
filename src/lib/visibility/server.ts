@@ -13,6 +13,21 @@ import type { Permission, Viewer } from '@/lib/visibility/types';
 export type { Permission, Viewer };
 
 /**
+ * User ID dari sesi, dibaca SATU KALI per request.
+ *
+ * `auth.getUser()` bukan operasi lokal: ia memvalidasi JWT ke server Auth,
+ * jadi satu network round trip. Tanpa cache ini, satu render bisa memanggilnya
+ * lima kali (proxy, viewer, profil sendiri, portofolio sendiri, tautan sosial
+ * sendiri) untuk jawaban yang identik. `cache` di sini membuat semua pemanggil
+ * berbagi satu hasil.
+ */
+export const getCurrentUserId = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+});
+
+/**
  * Konteks viewer untuk request ini, dibaca lewat RPC `get_viewer_context`.
  *
  * Catatan: JWT tetap valid setelah akun dinonaktifkan, jadi status selalu dibaca
@@ -22,10 +37,9 @@ export type { Permission, Viewer };
  * gunanya untuk UX: menentukan shell navigasi dan pesan mana yang tampil.
  */
 export const getViewer = cache(async (): Promise<Viewer> => {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id ?? null;
+  const userId = await getCurrentUserId();
 
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc('get_viewer_context');
   // Fungsi SQL mengembalikan TABLE, jadi PostgREST mengirim array satu baris.
   const row = error ? null : data?.[0];

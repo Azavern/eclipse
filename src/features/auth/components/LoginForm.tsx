@@ -20,7 +20,7 @@ export function LoginForm({ next }: { next: string }) {
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
 
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Berhasil masuk." />
 
       <FormField id="email" label="Email" error={first('email')} required>
         {(describedBy) => (

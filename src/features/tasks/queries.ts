@@ -6,12 +6,20 @@ import type { Task } from '@/lib/supabase/database.types';
 import type { TaskStatusName } from './schemas';
 
 /** Kolom ringkas daftar tugas. */
-export type TaskListRow = Pick<Task, 'id' | 'title' | 'deadline' | 'target' | 'status'>;
+export type TaskListRow = Pick<Task, 'id' | 'title' | 'course' | 'deadline' | 'target' | 'status'>;
 
 /** Kolom halaman detail dan form edit. */
 export type TaskDetailRow = Pick<
   Task,
-  'id' | 'title' | 'description' | 'deadline' | 'target' | 'url' | 'status' | 'created_by'
+  | 'id'
+  | 'title'
+  | 'course'
+  | 'description'
+  | 'deadline'
+  | 'target'
+  | 'url'
+  | 'status'
+  | 'created_by'
 >;
 
 /**
@@ -25,7 +33,7 @@ export const getTasks = cache(async (status: TaskStatusName): Promise<TaskListRo
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('tasks')
-    .select('id, title, deadline, target, status')
+    .select('id, title, course, deadline, target, status')
     .eq('status', status)
     .order('deadline', { ascending: status === 'active' })
     .limit(50);
@@ -45,7 +53,7 @@ export const getTaskById = cache(async (id: string): Promise<TaskDetailRow | nul
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('tasks')
-    .select('id, title, description, deadline, target, url, status, created_by')
+    .select('id, title, course, description, deadline, target, url, status, created_by')
     .eq('id', id)
     .maybeSingle();
 

@@ -68,7 +68,7 @@ function InviteForm() {
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Anggota diundang. Salin tautan aksesnya sekarang." />
 
       {accessUrl && accessEmail ? <AccessLinkBox url={accessUrl} email={accessEmail} /> : null}
 
@@ -172,9 +172,11 @@ function MemberRow({ member, isSelf }: { member: ManagedMember; isSelf: boolean 
           <form action={statusAction}>
             <input type="hidden" name="user_id" value={member.user_id} />
             <input type="hidden" name="next" value={isActive ? 'inactive' : 'active'} />
-            <Button type="submit" variant="secondary" disabled={isSelf && isActive} loading={false}>
+            {/* `SubmitButton` mengikuti status form: nonaktif + spinner selama
+                aksi berjalan, jadi klik ganda tidak mungkin terjadi. */}
+            <SubmitButton variant="secondary" pendingLabel="Menyimpan…" disabled={isSelf && isActive}>
               {isActive ? 'Nonaktifkan' : 'Aktifkan'}
-            </Button>
+            </SubmitButton>
           </form>
 
           <Button
@@ -188,8 +190,15 @@ function MemberRow({ member, isSelf }: { member: ManagedMember; isSelf: boolean 
         </div>
 
         <div className="mt-2">
-          <FormStatus state={statusState} />
-          <FormStatus state={deleteState} />
+          <FormStatus
+            state={statusState}
+            successMessage={
+              isActive
+                ? `${member.full_name} sekarang tidak aktif.`
+                : `${member.full_name} sekarang aktif.`
+            }
+          />
+          <FormStatus state={deleteState} successMessage={`${member.full_name} dihapus.`} />
         </div>
 
         <ConfirmDialog

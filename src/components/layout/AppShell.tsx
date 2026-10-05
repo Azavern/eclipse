@@ -24,7 +24,7 @@ export function AppShell({
   children,
 }: {
   viewer: Viewer;
-  navItems: NavEntry[];
+  navItems: readonly NavEntry[];
   identity: ClassIdentity;
   timezone: string;
   children: ReactNode;

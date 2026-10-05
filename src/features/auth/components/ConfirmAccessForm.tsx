@@ -70,7 +70,7 @@ export function ConfirmAccessForm() {
       <input type="hidden" name="token_hash" value={link.tokenHash ?? ''} />
       <input type="hidden" name="type" value={link.type ?? ''} />
 
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Akun aktif. Lanjut isi profilmu." />
 
       {!complete && !ready && !rejected ? (
         <p role="status" className="text-small text-text-muted">

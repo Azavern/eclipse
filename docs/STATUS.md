@@ -261,6 +261,292 @@ halaman. `script-src` kini menambah `'unsafe-eval'` **hanya** saat
 
 ---
 
+## Siklus ini — audit performa/UX (5 Oktober 2026)
+
+Audit dilakukan lebih dulu tanpa mengubah kode, lalu diperbaiki. Semua data
+tetap diambil di server (tidak ada Route Handler, tidak ada fetch di Client
+Component); yang diperbaiki adalah **jumlah, urutan, batas, dan cara tampilnya**.
+
+### Temuan audit (diurutkan dampak)
+
+| Dampak | Temuan | Bukti |
+|---|---|---|
+| Tinggi | **N+1 Storage**: `AvatarFromPath` menandatangani satu path per avatar, jadi satu permintaan HTTP per baris daftar | `components/storage/AvatarFromPath.tsx:22`; `/members` bisa menampilkan 100 avatar |
+| Tinggi | **JWT divalidasi 2–5× per request**: proxy + `getViewer` + `getMyProfile` + `getMyPortfolio` + `getMySocialLinks` | `proxy.ts:46`, `visibility/server.ts:26`, `member/queries.ts:18`, `portfolio/queries.ts:60`, `social/queries.ts:46` |
+| Tinggi | **Identitas kelas dibaca dua kali**: query sendiri di root layout + `getClassIdentity` di layout `(app)` | `app/layout.tsx:53` vs `class/queries.ts:26` |
+| Tinggi | **Region Vercel tidak di-pin**: `vercel.json` tidak ada di repo | blueprint §2/§4 menetapkan `sin1` |
+| Tinggi | **Tidak ada satu pun `<Suspense>`**: semua halaman menunggu semua data; satu `loading.tsx` grup untuk semua route | `grep -rn Suspense src` → 0 |
+| Sedang | Waterfall: `getEditableClass` lalu `getClassLinks`; `getMyProfile` sebelum `Promise.all`; profil anggota sebelum `canShow`; tautan kelas setelah `canShow` | `settings/class/page.tsx:22`, `settings/profile/page.tsx:46`, `members/[username]/page.tsx:32`, `class/page.tsx:33` |
+| Sedang | `getUpcoming` mengambil 3×20 baris lalu `slice(0, 5)` | `home/queries.ts:32` |
+| Sedang | Tidak ada pola notifikasi: sukses = kotak inline statis dengan teks identik untuk semua aksi | `ui/FormStatus.tsx:20` |
+| Sedang | Error state hanya di level grup: satu section gagal membuat seluruh halaman diganti | `(app)/error.tsx` |
+| Sedang | Aksi tanpa feedback: `MembersManager` memakai `<Button loading={false}>`, jadi double-submit mungkin terjadi | `MembersManager.tsx:175` |
+| Sedang | Batas 50/100 baris tanpa penanda pagination | `events/queries.ts:38`, `tasks/queries.ts:27`, `member/queries.ts:55` |
+| Rendah | `listUsers({ perPage: 1000 })` mengambil objek user lengkap; GoTrue tidak mendukung pemilihan kolom | `member/actions.ts` — perlu perubahan skema, jadi **diterima apa adanya** |
+| Rendah | `visibility_rules` difilter `owner_id` sedangkan indeks uniknya `(class_id, key, owner_id)` | tabel ini maksimal 27 baris, dampaknya nihil |
+
+Bukti region: `curl -D - https://<project>.supabase.co/rest/v1/` mengembalikan
+`CF-RAY: …-SIN`, jadi Supabase berada di Singapura. Region Vercel **belum bisa
+diverifikasi dari mesin ini** (folder `.vercel` tidak ada, proyek belum
+ter-link), jadi `vercel.json` baru dibuat sekarang dan efeknya baru berlaku
+setelah deploy berikutnya.
+
+Bukti latensi dari mesin ini: 237–309 ms per round trip PostgREST (5× percobaan
+hangat). Angka itu yang membuat jumlah round trip, bukan ukuran payload, jadi
+menjadi target utama perbaikan.
+
+### Yang diperbaiki
+
+**A — navigasi cepat**
+
+- `/settings` kini **ada** dan mengalihkan ke `/settings/profile` (blueprint §10).
+  Sebelumnya `UserMenu` menautkan ke `/settings` yang tidak pernah ada, jadi
+  berakhir **404**. Itu penyebab 404 yang dilaporkan.
+- "Pengaturan" dipindahkan ke navigasi: `SETTINGS_NAV_ITEM` masuk ke daftar yang
+  dipakai **sidebar (desktop) dan bottom nav (mobile)**, lalu dihapus dari
+  `UserMenu`. Item ini tidak punya visibility key; kelihatannya ditentukan oleh
+  apakah viewer punya izin apa pun.
+- Streaming per section: Home (`features/home/components/HomeSlots.tsx`),
+  `/settings/profile` (`SocialLinksSection`, `PortfolioSection`,
+  `MyVisibilitySection`), dan `/members/[username]` (`MemberPortfolioSection`,
+  `MemberSocialSection`). Tiap section adalah Server Component async yang
+  mengambil datanya sendiri, jadi halaman tidak menunggu section lain.
+- `loading.tsx` per route dengan bentuk yang sesuai halamannya: **12 file
+  baru** (`class`, `members`, `members/[username]`, `schedule`, `events`,
+  `tasks`, dan enam `settings/*`), plus `loading.tsx` grup yang ditulis
+  ulang supaya tidak lagi memakai skeleton khas Home untuk semua halaman.
+- Waterfall diperbaiki di `settings/class`, `settings/profile`,
+  `members/[username]`, dan `class`: yang independen kini satu ronde.
+- **Prefetch `<Link>` sengaja tidak diaktifkan** dengan `prefetch={true}`. Semua
+  route `force-dynamic`, jadi setiap hover akan memicu render server penuh
+  (6–8 round trip). Di free tier itu lebih mahal daripada gunanya, dan
+  streaming sudah menyelesaikan masalah "menunggu semua data".
+
+**B — skeleton**
+
+- `Skeleton.tsx` bertambah: `SkeletonPageHeader`, `SkeletonSectionTitle`,
+  `SkeletonSectionShell`, `SkeletonCardGrid`, `SkeletonAvatarStrip`,
+  `SkeletonStats`, `SkeletonActivity`, `SkeletonForm`, `SkeletonFormPage`, dan
+  `SkeletonListPage`. Semuanya memakai token saja, tanpa animasi, dan mengikuti
+  ukuran komponen aslinya (kontrol form setinggi `h-11`, avatar bulat, grid
+  metrik 2/4 kolom).
+
+**C — status tiap aksi**
+
+- `ui/Toast.tsx`: **satu** pola notifikasi untuk seluruh aplikasi. Store kecil
+  di modul + `useSyncExternalStore`, satu wilayah `aria-live="polite"`, tutup
+  otomatis 5 detik, tombol tutup per notifikasi. Tanpa library baru.
+  Notifikasi ini **hanya untuk sukses**: error tetap inline di `FormStatus`
+  (`role="alert"`, menempel pada field) dan error section sebagai
+  `ErrorState` dengan tombol coba lagi. Toast untuk error akan jauh dari
+  tempat pengguna sedang membaca.
+- `FormStatus` jadi satu-satunya titik umpan balik: **error tetap inline**
+  dengan `role="alert"` supaya dekat dengan field, **sukses jadi toast** dengan
+  pesan spesifik per aksi (21 form diberi pesan masing-masing).
+- `ui/SectionBoundary.tsx`: error boundary per section. "Coba lagi" membuka
+  subtree **dan** memanggil `router.refresh()`, jadi query yang tadi gagal
+  benar-benar dijalankan ulang.
+- `MembersManager` memakai `SubmitButton`, jadi tombol nonaktif + spinner +
+  label "Menyimpan…" selama aksi berjalan (double-submit mustahil).
+- **Optimistic update tidak diimplementasikan, dan itu keputusan sadar**: semua
+  mutasi memanggil `revalidatePath('/', 'layout')`, jadi server langsung
+  mengambil alih state klien. `useOptimistic` menambah kompleksitas tanpa
+  manfaat yang bertahan lama.
+
+**D — hemat resource**
+
+- `getCurrentUserId` (di-cache) dipakai `getViewer`, `getMyProfile`,
+  `getMyPortfolio`, dan `getMySocialLinks` → satu validasi JWT per request.
+- Root layout memakai `getClassTheme()` yang memakai `getClassIdentity()`
+  yang di-cache, bukan query sendiri.
+- Avatar ditandatangani **batch sekali per halaman** (`signMany` sudah ada,
+  tinggal dipakai) untuk `/members` dan strip anggota di Home.
+- `getUpcoming`: limit 20 → 5 per sumber, dan kolom `id` yang tidak dipakai
+  dibuang dari `schedules`.
+- `getRecentMembers`: 11 kolom → 4 kolom yang benar-benar dirender.
+- `proxy.ts` melewati panggilan Auth bila tidak ada cookie sesi (halaman masuk
+  dan beranda anonim). Pencocokan cookie juga menangani cookie terpecah
+  (`…-auth-token.0`) supaya sesi panjang tidak salah dianggap anonim.
+- `vercel.json` baru: `regions: ["sin1"]`.
+
+### Pengukuran: apa yang terbukti dan apa yang belum
+
+**Terbukti langsung** (build produksi + `next start`, render nyata):
+
+- Semua route sebagai Ketua 200: `/`, `/members`, `/tasks`, `/events`, `/schedule`,
+  `/class`, `/settings`, `/settings/profile`, `/settings/account`,
+  `/settings/class`, `/settings/theme`, `/settings/visibility`,
+  `/settings/members`. Anonim: `/`, `/login`, `/class` 200; `/tidak-ada` 404.
+- `/settings` mengalihkan ke `/settings/profile`
+  (`<meta http-equiv="refresh" content="1;url=/settings/profile">`), bukan 404.
+- **Streaming benar-benar terjadi**: HTML beranda memuat penanda chunk streamed
+  (`$RC(` × 3) beserta fallback skeleton di flush pertama, lalu section aslinya
+  menyusul di chunk berikutnya. `/settings/profile` memuat 4 penanda streamed.
+- Wadah notifikasi (`aria-live="polite"`) ada di setiap halaman.
+- Penandatangan Storage pada `/members` menghasilkan **satu** permintaan
+  `storage/v1/object/sign/member-media` untuk seluruh baris, bukan satu per baris.
+
+**Belum terbukti: perbaikan kecepatan di detik.**
+
+Pengukuran A/B dilakukan pada build produksi lokal (median 5× per route, sesi
+Ketua sama), tapi hasilnya **tidak bisa dipakai** sebagai bukti:
+
+1. Jalur internet dari mesin ini ke Supabase berfluktuasi: satu round trip
+   PostgREST terukur 237–309 ms, dan penyimpangan antar-run mencapai
+   ±1 detik pada kode yang **identik**. Contoh: `/tasks` tercatat 406 ms pada
+   satu run dan 1572 ms pada run berikutnya dengan build yang sama.
+2. Percobaan pertama tercemar: `npm start` gagal `EADDRINUSE` karena server lama
+   masih memegang port 3000, sehingga sebagian angka sebenarnya berasal dari
+   build yang salah. Angka dari percobaan itu **dibuang**, bukan dipakai.
+3. Upaya mengukur jumlah round trip dengan reverse proxy penghitung gagal:
+   proxy buatan sendiri merusak koneksi keep-alive sehingga beberapa query gagal
+   dengan `TypeError: terminated`.
+
+Jadi yang diklaim di sini hanya yang bisa ditunjuk ke kode dan ke render:
+
+| Yang berubah | Bukti |
+|---|---|
+| Satu validasi JWT per request, bukan 2–5 | `getCurrentUserId` di-cache dipakai `getViewer`, `getMyProfile`, `getMyPortfolio`, `getMySocialLinks` |
+| Query identitas kelas satu kali per request | root layout memakai `getClassTheme()` yang berbagi `cache` dengan layout `(app)` |
+   satu kali di `/members` dan strip Home; terlihat pada tally proxy (proxy itu sendiri masih bermasalah, jadi bukti ini lemah)
+| Section tidak saling menunggu | jumlah ronde `await` berkurang di 4 halaman; streaming terverifikasi dari HTML |
+| Panggilan Auth dilewati tanpa cookie sesi | `proxy.ts` |
+| Batas baris lebih ketat | `getUpcoming` 20 → 5 per sumber; `getRecentMembers` 11 → 4 kolom |
+
+Angka latency Vercel↔Supabase hanya bisa diketahui setelah deploy, karena
+memang tidak ada jalur database yang melewati mesin lokal ini.
+
+### Yang belum dikerjakan dari permintaan ini
+
+- Pagination di UI untuk daftar 50/100 baris belum ada; baru batas server.
+- `listUsers({ perPage: 1000 })` masih seperti adanya.
+- Menguji form end-to-end lewat klik hanya sudah dilakukan untuk **tugas**
+  (Chrome + Playwright, lihat bagian "Perbaikan tugas"); form lain belum.
+
+---
+
+## Struktur halaman pengaturan
+
+Masalahnya: sidebar (dan bottom nav) punya satu item **Pengaturan** → `/settings`.
+Dulu rute itu hanya mengalihkan ke `/settings/profile`, jadi lima halaman
+pengaturan lain tidak punya pintu masuk dari UI sama sekali — hanya bisa
+dibuka dengan mengetik URL. Sekarang `/settings` adalah **indeks**: tiga
+kelompok menurut siapa yang boleh mengubahnya, dan tiap entri menyebut fungsi
+konkret halamannya.
+
+| Kelompok | Halaman | Fungsi konkret | Syarat |
+|---|---|---|---|
+| Umum | `/settings/profile` — "Profil saya" | Nama, username, nama panggilan, bio, foto, tautan sosial, portofolio, aturan visibilitas pribadi | sesi + keanggotaan **aktif** |
+| Umum | `/settings/account` — "Akun & kata sandi" | Ganti kata sandi dan keamanan akun | sesi saja (bisa dipakai walau keanggotaan tidak aktif) |
+| Kelas | `/settings/class` — "Identitas kelas" | Nama, kode, tagline, deskripsi, sorotan, zona waktu, logo, cover, tautan kontak | `class.manage` |
+| Kelas | `/settings/theme` — "Tema kelas" | Warna, tipografi, tata letak + laporan kontras | `class.manage` |
+| Pengelolaan | `/settings/visibility` — "Aturan visibilitas" | Siapa boleh membuka tiap halaman/bagian; batas terluar di atas aturan pribadi | `class.manage` |
+| Pengelolaan | `/settings/members` — "Anggota" | Undang, terbitkan tautan akses sekali pakai, aktifkan/nonaktifkan, hapus | `members.manage` |
+
+Aturan yang menjaga konsistensinya:
+
+1. **Satu pintu masuk.** Item nav menunjuk `/settings` (indeks), bukan salah satu
+   halaman isinya.
+2. **Judul di indeks = judul halaman (`h1`).** Sudah selaras: `Akun & kata
+   sandi` dan `Aturan visibilitas` (sebelumnya h1-nya `Akun` dan `Visibilitas`,
+   jadi nama yang sama menunjuk dua hal berbeda).
+3. **Jalur keluar dari mana pun.** Semua enam halaman punya "Semua pengaturan"
+   di atas judulnya (`SettingsBackLink`), jadi tidak ada halaman yang jadi
+   jalan buntu.
+4. **Entri yang tidak berhak tidak dirender** — baik di indeks maupun di nav,
+   memakai aturan yang sama (§7.8). Konsekuensinya: anggota biasa hanya
+   melihat grup "Umum" saja.
+5. **Halaman pengaturan tidak saling menaut**; navigasi antar-pengaturan lewat
+   indeks, bukan lewat tombol silang, supaya jaraknya jelas.
+6. **Anonim tidak melihat apa pun.** `/settings` dan keenam halamannya
+   mengarahkan ke `/login?next=…`; daftar pengaturan tidak pernah ikut terkirim
+   ke browser anonim.
+
+---
+
+## Perbaikan tugas (5 Oktober 2026)
+
+Permintaan Knotus: tugas harus menyebut **nama mata kuliah**, **sasaran** harus
+dipilih dari daftar, dan satu orang harus bisa punya **beberapa tugas
+sekaligus**.
+
+### "Tugas baru menimpa tugas lama" — akar masalahnya bukan bug tulis
+
+Diusulkan lebih dulu lewat reproduksi berlapis, hasilnya:
+
+| Lapis | Cara diuji | Hasil |
+|---|---|---|
+| Skema + RLS | Dua `INSERT` langsung ke `tasks` sebagai user Ketua | 2 baris baru, keduanya ada |
+| Server Action | Dua submit form lewat HTTP nyata (jalur no-JS) | `303` ke dua id berbeda, 3 baris di DB |
+| Browser sungguhan | Chrome via Playwright, klik "Simpan tugas" dua kali | Dua halaman detail berbeda, 3 baris di DB |
+
+Jadi `createTask` memang selalu `INSERT` dan **satu orang sudah bisa punya
+banyak tugas**. Bukti pada baris yang ada di database itu sendiri:
+`Review buku` punya `created_at 13:36:25` tetapi `updated_at 13:37:07` — tugas
+"baru" itu masuk lewat **form ubah** pada `/tasks/[id]/edit`, bukan lewat form
+buat.
+
+Penyebabnya bentuk layar: setelah menyimpan, pengguna mendarat di halaman
+detail yang satu-satunya aksi adalah **"Ubah tugas"**, dan form itu identik
+dengan form buat. Menambah tugas kedua selalu dimulai dari form yang sama.
+
+Yang diperbaiki (bukan menambah batasan baru):
+
+1. Halaman detail punya **"Buat tugas lagi"** di sebelah "Ubah tugas" — sehingga
+   menambah tugas berikutnya tidak lagi melewati form ubah.
+2. Judul halaman ubah menyebut tugas yang sedang diubah: *"Menyimpan di sini
+   mengubah tugas \"…\", bukan membuat tugas baru."*
+3. `/tasks` menyebut jumlahnya di deskripsi ("3 aktif. …") dan form buat
+   menegaskan satu isian = satu tugas.
+
+### Mata kuliah
+
+Ditambah lewat **migration baru** `20261005120800_task_course.sql`, bukan
+mengubah migration yang sudah applied: kolom `tasks.course text` dengan CHECK
+1–80, plus penambahan kolom ke `grant insert`/`grant update` (grant di tabel ini
+berbasis kolom, jadi tanpa itu PostgREST akan menolaknya). Kolom nullable supaya
+baris lama tidak dipalsukan; kewajiban mengisi ditegakkan Zod, dan baris lama
+ditampilkan sebagai "Tanpa mata kuliah".
+
+Ditampilkan di daftar (`/tasks`) dan di halaman detail, berdampingan dengan
+sasaran dan tenggat.
+
+### Sasaran jadi dropdown
+
+`target` tetap kolom teks (A-13: label informatif, bukan assignment), tetapi
+nilainya dibatasi ke daftar tetap `TASK_TARGETS` = `Seluruh kelas`, `Ketua`,
+`Anggota`, `Hanya aku`. Kolom DB tidak diubah jadi enum karena nilainya sudah
+tersimpan dan dibaca beberapa halaman; daftarlah yang jadi satu sumber
+kebenaran, divalidasi lagi di Server Action supaya permintaan yang dibuat-buat
+tidak bisa menulis teks bebas seperti "Kelompok A".
+
+### Verifikasi
+
+- `lint`, `typecheck`, `test` (139 tes, +3), `check:tokens`,
+  `check:boundaries`, `build` (27 rute): semua keluar 0.
+- `npx supabase migration list` → hanya `20261005120800` yang pending, lalu
+  `--dry-run` sebelum `db push`.
+- Chrome sungguhan, 20 cek lulus: kolom matakuliah ada; sasaran benar-benar
+  `SELECT` dengan 4 opsi dan default "Seluruh kelas"; matakuliah kosong dan
+  sasaran tak dikenal **ditolak server** (200 + pesan, bukan 303); dua tugas
+  yang dibuat berturut-turut tampil bersama di daftar; tugas lama tidak
+  berubah (`updated_at` identik); "Buat tugas lagi" membuka form kosong tanpa
+  field `id` tersembunyi.
+
+### Yang tidak dilakukan
+
+- `blueprint.md` **tidak diubah** walau §19/AC-TASKS belum menyebut `course`.
+  Ikuti pola yang sama seperti perubahan IA pengaturan: dicatat di sini sebagai
+  penyimpangan yang disengaja, menunggu keputusan Knotus soal naskah blueprint.
+- Home (`getUpcoming`) dan `/schedule` belum menampilkan mata kuliah; yang
+  diminta — tugas menyatakan mata kuliahnya — sudah terpenuhi di daftar dan
+  detail.
+- Katalog mata kuliah bersama (dipilih ulang, bukan diketik) belum ada; kolomnya
+  sekarang teks bebas 1–80. Perlu migration + halaman pengelolaan bila
+  diminta.
+
+---
+
 ## Desain Stitch vs blueprint
 
 Ekspor Stitch tersedia di `stitch_ui_system/` (16 layar + `DESIGN.md` sistem

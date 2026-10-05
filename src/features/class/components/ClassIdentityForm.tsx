@@ -36,7 +36,7 @@ export function ClassIdentityForm({ defaults }: { defaults: ClassIdentityDefault
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Identitas kelas tersimpan." />
 
       <FormField id="name" label="Nama kelas" error={first('name')} required>
         {(describedBy) => (

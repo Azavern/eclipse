@@ -69,7 +69,7 @@ export function ThemeEditor({ defaults }: { defaults: ThemeDefaults }) {
 
   return (
     <form action={action} className="flex flex-col gap-8">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Tema kelas tersimpan." />
 
       <div className="flex flex-wrap gap-6">
         <div className="flex min-w-56 flex-1 flex-col gap-4">

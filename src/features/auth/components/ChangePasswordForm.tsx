@@ -23,7 +23,7 @@ export function ChangePasswordForm() {
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Kata sandi diganti." />
 
       <FormField
         id="currentPassword"

@@ -2,9 +2,9 @@
 
 import { useActionState, useState } from 'react';
 import { createTask, deleteTask, setTaskStatus, updateTask } from '@/features/tasks/actions';
-import { DEFAULT_TASK_TARGET } from '@/features/tasks/schemas';
+import { DEFAULT_TASK_TARGET, TASK_TARGETS } from '@/features/tasks/schemas';
 import { FormField } from '@/components/ui/FormField';
-import { Input, Textarea } from '@/components/ui/Input';
+import { Input, Select, Textarea } from '@/components/ui/Input';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -14,6 +14,7 @@ import type { FormState } from '@/lib/result';
 /** Nilai awal form; deadline sudah dikonversi ke waktu dinding zona kelas. */
 export type TaskDefaults = {
   title: string;
+  course: string;
   description: string;
   deadline: string;
   target: string;
@@ -22,6 +23,7 @@ export type TaskDefaults = {
 
 const EMPTY: TaskDefaults = {
   title: '',
+  course: '',
   description: '',
   deadline: '',
   target: DEFAULT_TASK_TARGET,
@@ -61,6 +63,27 @@ function TaskFields({
       </FormField>
 
       <FormField
+        id="task-course"
+        label="Mata kuliah"
+        hint="Mata kuliah yang menjadi konteks tugas ini."
+        error={first('course')}
+        required
+      >
+        {(describedBy) => (
+          <Input
+            id="task-course"
+            name="course"
+            required
+            maxLength={80}
+            placeholder="Contoh: Basis Data"
+            defaultValue={value('course')}
+            invalid={Boolean(first('course'))}
+            describedBy={describedBy}
+          />
+        )}
+      </FormField>
+
+      <FormField
         id="task-deadline"
         label="Tenggat"
         hint="Waktu di zona kelas, bukan zona perangkatmu."
@@ -80,21 +103,31 @@ function TaskFields({
         )}
       </FormField>
 
+      {/*
+        Sasaran memakai select native, bukan input teks: daftarannya sudah
+        dibatasi di `TASK_TARGETS` dan divalidasi ulang di Server Action, jadi
+        teks "Kelompok A" yang tidak ada di daftar tidak bisa tersimpan.
+      */}
       <FormField
         id="task-target"
         label="Sasaran"
-        hint={`Untuk siapa tugas ini. Default "${DEFAULT_TASK_TARGET}".`}
+        hint="Untuk siapa tugas ini berlaku."
         error={first('target')}
       >
         {(describedBy) => (
-          <Input
+          <Select
             id="task-target"
             name="target"
-            maxLength={80}
             defaultValue={value('target')}
             invalid={Boolean(first('target'))}
             describedBy={describedBy}
-          />
+          >
+            {TASK_TARGETS.map((target) => (
+              <option key={target} value={target}>
+                {target}
+              </option>
+            ))}
+          </Select>
         )}
       </FormField>
 
@@ -135,14 +168,18 @@ function TaskFields({
   );
 }
 
-/** Form buat tugas. Setelah sukses aksi mengarahkan ke halaman detail tugas. */
+/**
+ * Form buat tugas. Setelah sukses aksi mengarahkan ke halaman detail tugas,
+ * tempat tombol "Buat tugas lagi" melanjutkan menambah tugas berikutnya — bukan
+ * membuka form ubah yang akan menimpa tugas tadi.
+ */
 export function CreateTaskForm() {
   const [state, action] = useActionState(createTask, null);
   const values = state && !state.ok ? state.values : undefined;
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Tugas tersimpan." />
       <TaskFields defaults={EMPTY} values={values} errors={fieldErrors(state)} />
       <SubmitButton pendingLabel="Menyimpan…">Simpan tugas</SubmitButton>
     </form>
@@ -168,7 +205,7 @@ export function EditTaskForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <FormStatus state={removeState} />
+      <FormStatus state={removeState} successMessage="Tugas dihapus." />
 
       <form action={action} className="flex flex-col gap-5">
         <input type="hidden" name="id" value={id} />
@@ -225,7 +262,7 @@ export function TaskStatusForm({
       <SubmitButton variant={variant} pendingLabel="Menyimpan…">
         {label}
       </SubmitButton>
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Status tugas diperbarui." />
     </form>
   );
 }

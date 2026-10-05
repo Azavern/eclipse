@@ -5,7 +5,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { UserMenu } from './UserMenu';
 import { StorageImage } from '@/components/storage/StorageImage';
 import { zoneLabel } from '@/lib/time';
-import type { NavItem } from './NavItems';
+import type { NavEntry } from './NavItems';
 
 export type ClassIdentity = { name: string; logoPath: string | null };
 
@@ -26,7 +26,7 @@ export function TopBar({
   timezone,
 }: {
   viewer: Viewer;
-  navItems: NavItem[];
+  navItems: readonly NavEntry[];
   identity: ClassIdentity;
   timezone: string;
 }) {

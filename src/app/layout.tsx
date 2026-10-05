@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { getClassTheme } from '@/features/class/queries';
 import { DEFAULT_THEME } from '@/lib/theme/defaults';
-import { ThemeSchema, type Theme } from '@/lib/theme/schema';
+import type { Theme } from '@/lib/theme/schema';
 import { buildThemeCss } from '@/lib/theme/css';
 import { fontPresetClass } from '@/lib/theme/fonts';
+import { Toaster } from '@/components/ui/Toast';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -27,7 +28,11 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
       <head>
         <style nonce={nonce} dangerouslySetInnerHTML={{ __html: buildThemeCss(theme) }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Satu wadah notifikasi untuk seluruh aplikasi (§15.1). */}
+        <Toaster />
+      </body>
     </html>
   );
 }
@@ -45,16 +50,10 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
  */
 async function resolveTheme(): Promise<Theme> {
   try {
-    const supabase = await createClient();
-    const { data } = await supabase.from('class_identity_v').select('theme').limit(1);
-    const raw = data?.[0]?.theme;
-    if (!raw) return DEFAULT_THEME;
-
-    const parsed = ThemeSchema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-
-    console.error('[theme] theme tersimpan tidak lolos validasi, memakai default');
-    return DEFAULT_THEME;
+    // `getClassTheme` dibungkus `cache` React, jadi query yang sama dengan yang
+    // dipakai AppLayout di request ini hanya dieksekusi sekali — bukan dua kali
+    // (satu di sini, satu lagi di layout `(app)`).
+    return await getClassTheme();
   } catch (cause) {
     // Saat build, Next mungkin belum menandai route sebagai dinamis sehingga
     // `cookies()` melempar. Itu kondisi normal, bukan kegagalan aplikasi.

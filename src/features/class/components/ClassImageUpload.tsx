@@ -34,7 +34,7 @@ export function ClassImageUpload({
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="folder" value={folder} />
 
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Gambar kelas tersimpan." />
 
       <FormField id={`file-${folder}`} label={label} hint={hint} error={fileError} required>
         {(describedBy) => (

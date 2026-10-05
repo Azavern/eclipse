@@ -32,26 +32,29 @@ export const getUpcoming = cache(async (): Promise<UpcomingEntry[]> => {
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
 
+  // Batas per sumber sama dengan batas gabungan: daftar terakhir hanya 5 item,
+  // jadi 5 baris dari tiap sumber sudah cukup untuk mengisi 5 item itu. Mengambil
+  // 20 per sumber hanya membuang 15 baris yang tidak akan pernah dirender.
   const [schedules, events, tasks] = await Promise.all([
     supabase
       .from('schedules')
-      .select('id, title, start_at, end_at, location, type')
+      .select('title, start_at, end_at, location, type')
       .gte('end_at', nowIso)
       .order('start_at', { ascending: true })
-      .limit(20),
+      .limit(HOME_UPCOMING_LIMIT),
     supabase
       .from('events')
       .select('id, title, start_at, end_at, location')
       .gte('end_at', nowIso)
       .order('start_at', { ascending: true })
-      .limit(20),
+      .limit(HOME_UPCOMING_LIMIT),
     supabase
       .from('tasks')
       .select('id, title, deadline, target')
       .eq('status', 'active')
       .gte('deadline', nowIso)
       .order('deadline', { ascending: true })
-      .limit(20),
+      .limit(HOME_UPCOMING_LIMIT),
   ]);
 
   // Query yang gagal tidak boleh menjatuhkan seluruh halaman; daftar kosong
@@ -127,12 +130,20 @@ export const getActivityTrend = cache(async (): Promise<ActivityTrendRow[]> => {
   return data ?? [];
 });
 
+/** Strip anggota di Home hanya memakai empat kolom ini. */
+export type RecentMemberSummary = Pick<
+  MemberProfileSummary,
+  'user_id' | 'username' | 'full_name' | 'avatar_path'
+>;
+
 /** Anggota terbaru untuk strip di Home, maksimal 12 (§19). */
-export const getRecentMembers = cache(async (): Promise<MemberProfileSummary[]> => {
+export const getRecentMembers = cache(async (): Promise<RecentMemberSummary[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('member_profile_v')
-    .select('class_id, user_id, username, full_name, nickname, bio, avatar_path, role_id, role_name, status, joined_at')
+    // Hanya kolom yang benar-benar dirender strip; sisa kolom view tidak
+    // dikirim ke server render Home.
+    .select('user_id, username, full_name, avatar_path')
     .order('joined_at', { ascending: false })
     .limit(12);
 

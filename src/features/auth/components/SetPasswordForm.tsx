@@ -24,7 +24,7 @@ export function SetPasswordForm({ mode }: { mode: 'activate' | 'reset' }) {
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Kata sandi tersimpan." />
 
       <FormField
         id="password"

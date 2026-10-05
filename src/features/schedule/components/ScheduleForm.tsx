@@ -184,7 +184,7 @@ export function CreateScheduleForm() {
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Jadwal tersimpan." />
       <ScheduleFields defaults={EMPTY} values={values} errors={fieldErrors(state)} />
       <SubmitButton pendingLabel="Menyimpan…">Simpan jadwal</SubmitButton>
     </form>
@@ -210,7 +210,7 @@ export function EditScheduleForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <FormStatus state={removeState} />
+      <FormStatus state={removeState} successMessage="Jadwal dihapus." />
 
       <form action={action} className="flex flex-col gap-5">
         <input type="hidden" name="id" value={id} />

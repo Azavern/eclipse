@@ -145,7 +145,7 @@ function PortfolioRowEditor({
 
   return (
     <div className="flex flex-col gap-3 border-t border-border-subtle py-4 first:border-t-0">
-      <FormStatus state={removeState} />
+      <FormStatus state={removeState} successMessage="Item portofolio dihapus." />
 
       <form action={updateAction} className="flex flex-col gap-4">
         <input type="hidden" name="id" value={item.id} />
@@ -188,7 +188,7 @@ function PortfolioRowEditor({
           )}
         </FormField>
 
-        <FormStatus state={updateState} />
+        <FormStatus state={updateState} successMessage="Item portofolio tersimpan." />
 
         <div className="flex flex-wrap gap-2">
           <SubmitButton pendingLabel="Menyimpan…">Simpan item</SubmitButton>
@@ -223,7 +223,7 @@ function AddPortfolioForm({ map }: { map: Record<VisibilityKey, VisibilityEntry>
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Item portofolio ditambahkan." />
 
       <ItemFields prefix="new-item" errors={errors} />
 

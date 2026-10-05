@@ -2,6 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserId } from '@/lib/visibility/server';
 import { USERNAME } from '@/lib/validation';
 
 /**
@@ -13,11 +14,10 @@ import { USERNAME } from '@/lib/validation';
  * bio bisa NULL di sana padahal aslinya tidak NULL di tabel.
  */
 export const getMyProfile = cache(async () => {
-  const supabase = await createClient();
-
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const userId = await getCurrentUserId();
   if (!userId) return null;
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('member_profiles')

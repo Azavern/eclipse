@@ -2,6 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserId } from '@/lib/visibility/server';
 import { PORTFOLIO_LIMIT } from './schemas';
 
 /**
@@ -56,9 +57,7 @@ export const getMemberPortfolio = cache(
 
 /** Portofolio milik viewer sendiri, untuk form di `/settings/profile`. */
 export const getMyPortfolio = cache(async (): Promise<PortfolioRow[]> => {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const userId = await getCurrentUserId();
   if (!userId) return [];
 
   // Baris sendiri tetap dibaca lewat RLS yang sama, bukan tabel lain: pemilik

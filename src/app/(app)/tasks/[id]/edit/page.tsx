@@ -6,12 +6,18 @@ import { EditTaskForm } from '@/features/tasks/components/TaskForm';
 import { DEFAULT_TIMEZONE, utcIsoToLocalInput } from '@/lib/time';
 import { PageHeader } from '@/components/ui/Section';
 import { NoAccess } from '@/components/ui/States';
+import { ButtonLink } from '@/components/ui/Button';
 
 export const dynamic = 'force-dynamic';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Ubah tugas — gate `tasks.manage`; tenggat dikembalikan ke waktu dinding kelas. */
+/**
+ * Ubah tugas — gate `tasks.manage`; tenggat dikembalikan ke waktu dinding kelas.
+ *
+ * Judul halaman menyebut tugas yang sedang diubah. Tanpa itu, form ini identik
+ * dengan form "Buat tugas" dan bisa dipakai untuk menimpa tugas yang lain.
+ */
 export default async function EditTaskPage({ params }: { params: Promise<{ id: string }> }) {
   const gate = await requirePermission('tasks.manage');
   if (!gate) {
@@ -34,7 +40,11 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Ubah tugas" description="Kosongkan sebuah isian untuk menghapus nilainya." />
+      <PageHeader
+        title="Ubah tugas"
+        description={`Menyimpan di sini mengubah tugas "${task.title}", bukan membuat tugas baru.`}
+        action={<ButtonLink href={`/tasks/${task.id}`} variant="secondary">Batal</ButtonLink>}
+      />
 
       <div className="max-w-form">
         <EditTaskForm
@@ -42,6 +52,7 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
           title={task.title}
           defaults={{
             title: task.title,
+            course: task.course ?? '',
             description: task.description ?? '',
             deadline: utcIsoToLocalInput(task.deadline, timezone),
             target: task.target,

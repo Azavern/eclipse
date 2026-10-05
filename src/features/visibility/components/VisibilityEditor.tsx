@@ -76,7 +76,7 @@ export function VisibilityEditor({
 
   return (
     <form action={action} className="flex flex-col gap-8">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Aturan visibilitas kelas tersimpan." />
 
       {groups.map(({ group, keys }) => (
         <section key={group} className="flex flex-col gap-4">

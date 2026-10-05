@@ -23,7 +23,7 @@ export function ProfileForm({ defaults }: { defaults: ProfileDefaults }) {
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      <FormStatus state={state} />
+      <FormStatus state={state} successMessage="Profil tersimpan." />
 
       <FormField id="full_name" label="Nama lengkap" error={first('full_name')} required>
         {(describedBy) => (

@@ -15,6 +15,11 @@ export const dynamic = 'force-dynamic';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Label mata kuliah untuk baris lama yang belum punya nilai (kolom nullable). */
+function courseLabel(course: string | null): string {
+  return course && course.length > 0 ? course : 'Tanpa mata kuliah';
+}
+
 /**
  * Detail tugas — gate `page.tasks`.
  *
@@ -54,10 +59,24 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="flex flex-col gap-8">
+      {/*
+        "Buat tugas lagi" duduk di sebelah "Ubah tugas" dengan sengaja. Tanpa
+        itu, menambah tugas kedua selalu dimulai dari form ubah — dan form itu
+        menimpa tugas yang sedang dibuka.
+      */}
       <PageHeader
         title={task.title}
-        description={`Tenggat ${formatDateTime(task.deadline, timezone)}`}
-        action={canManage ? <ButtonLink href={`/tasks/${task.id}/edit`}>Ubah tugas</ButtonLink> : undefined}
+        description={`${courseLabel(task.course)} · Tenggat ${formatDateTime(task.deadline, timezone)}`}
+        action={
+          canManage ? (
+            <>
+              <ButtonLink href={`/tasks/${task.id}/edit`} variant="secondary">
+                Ubah tugas
+              </ButtonLink>
+              <ButtonLink href="/tasks/new">Buat tugas lagi</ButtonLink>
+            </>
+          ) : undefined
+        }
       />
 
       <Section title="Keterangan">
@@ -67,6 +86,10 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
           </Badge>
 
           <dl className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-caption font-semibold text-text-muted">Mata kuliah</dt>
+              <dd className="text-body text-text">{courseLabel(task.course)}</dd>
+            </div>
             <div>
               <dt className="text-caption font-semibold text-text-muted">Sasaran</dt>
               <dd className="text-body text-text">{task.target}</dd>
