@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Eclipse — Sistem Kelas Mahasiswa
 
-## Getting Started
+Rumah digital sebuah kelas mahasiswa: identitas kelas, anggota beserta profil,
+jadwal, event, dan tugas, dengan **Dynamic Visibility** yang dikendalikan
+Ketua kelas.
 
-First, run the development server:
+Spesifikasi lengkap ada di [`blueprint.md`](./blueprint.md). Aturan rekayasa di
+[`AGENTS.md`](./AGENTS.md), aturan desain UI/UX di [`DESIGN.md`](./DESIGN.md).
+Status kerja dan hal yang belum terverifikasi ada di [`docs/STATUS.md`](./docs/STATUS.md).
+
+## Stack
+
+Next.js (App Router) · Supabase (Postgres, Auth, Storage, RLS) · Tailwind CSS v4 ·
+Zod · date-fns · lucide-react · Vitest.
+
+## Prasyarat
+
+- Node.js LTS
+- Proyek Supabase dengan migrasi 0001–0002 sudah diterapkan
+
+## Menjalankan
 
 ```bash
+npm install
+cp .env.example .env.local    # isi nilainya
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Variabel env divalidasi Zod saat startup, jadi aplikasi gagal cepat dengan pesan
+jelas bila ada yang kurang. **Tidak ada variabel `NEXT_PUBLIC_*`** yang dipakai
+aplikasi: tidak ada Supabase client di browser, sehingga kunci tidak pernah
+sampai ke klien dan cookie sesi tetap `httpOnly`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> `.env` proyek ini memakai nama `NEXT_PUBLIC_SUPABASE_*`. `src/lib/env.ts`
+> membacanya sebagai fallback supaya tidak perlu mengubah apa pun sekarang,
+> tetapi nama kanonisnya mengikuti `.env.example`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Migrasi database
 
-## Learn More
+0001–0002 sudah diterapkan. Untuk 0003–0008, ikuti
+[`scripts/apply-migrations.md`](./scripts/apply-migrations.md), lalu:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run db:types    # regenerate src/lib/supabase/database.types.ts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Perintah
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Perintah | Fungsi |
+|---|---|
+| `npm run dev` | Server pengembangan |
+| `npm run build` | Build produksi |
+| `npm run check` | Token check + boundary check + lint + typecheck |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Unit test (Vitest) |
+| `npm run check:tokens` | Menolak hex dan arbitrary value di komponen |
+| `npm run check:boundaries` | Menolak impor lintas lapisan yang salah |
+| `npm run db:types` | Generate tipe database dari Supabase |
 
-## Deploy on Vercel
+## Model hak akses
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Otorisasi ditegakkan di **database**, bukan di UI:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+User → Membership → Role → Permissions
+```
+
+Tidak ada Supabase client di browser. Semua baca/tulis lewat Server Component
+dan Server Action memakai cookie sesi `httpOnly`; RLS, view bermasker, dan RPC
+yang benar-benar decides. Gate di UI hanya defense in depth.
+
+Visibility mengikuti model tiga tempat, satu resolver: katalog statis
+(`visibility_catalog`), override (`visibility_rules`), dan kolom `visibility`
+nullable pada item. Penentu efektifnya dihitung **satu kali oleh fungsi SQL yang
+sama** — `app.can_view` — untuk RLS, view, RPC, dan Storage sekaligus. Key yang
+tidak dikenal berakhir pada `class_admin` (fail closed).
+
+## Tanpa data karangan
+
+Tidak ada data contoh dalam kode atau seed. Nama kelas dibaca dari
+`classes.name`; tagline, deskripsi, dan kode dibiarkan `NULL` sampai Ketua
+mengisinya, dan UI menampilkan empty state alih-alih teks pengganti.

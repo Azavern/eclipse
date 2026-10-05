@@ -1,0 +1,157 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Lapis token statis (blueprint §17.3)
+   Nilai ini tidak dapat diubah pengguna. Token runtime (--theme-*) disuntik
+   dari classes.theme oleh buildThemeCss() di root layout, dan dipetakan ke
+   --color-* di bawah. Komponen HANYA boleh memakaiutility yang dipetakan ke
+   token; scripts/check-tokens.mjs menolak hex dan nilai arbitrer.
+   ========================================================================== */
+
+@theme {
+  /* Spasi: 4 8 12 16 24 32 48 64 96 */
+  --spacing: 0.25rem;
+
+  --text-display: 2rem;
+  --text-display--line-height: 1.15;
+  --text-h1: 1.75rem;
+  --text-h1--line-height: 1.2;
+  --text-h2: 1.375rem;
+  --text-h2--line-height: 1.25;
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.3;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.2;
+
+  /* Radius menurut hierarki, bukan seragam */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-full: 9999px;
+
+  /* Palet runtime -> CSS variables. Nilai Asal ada di buildThemeCss(). */
+  --color-primary: var(--theme-primary);
+  --color-secondary: var(--theme-secondary);
+  --color-background: var(--theme-background);
+  --color-surface: var(--theme-surface);
+  --color-border-subtle: var(--theme-border);
+  --color-text: var(--theme-text-primary);
+  --color-text-muted: var(--theme-text-secondary);
+  --color-success: var(--theme-success);
+  --color-warning: var(--theme-warning);
+  --color-error: var(--theme-error);
+  --color-on-primary: var(--theme-on-primary);
+  --color-on-secondary: var(--theme-on-secondary);
+  --color-control-border: var(--theme-control-border);
+  --color-focus: var(--theme-focus);
+
+  /* Panjang layout */
+  --container-content: 72rem;
+  --container-form: 40rem;
+  --spacing-sidebar: 16rem;
+
+  /* Z-index */
+  --z-base: 0;
+  --z-bar: 10;
+  --z-dialog: 50;
+}
+
+/* Font di-host sendiri oleh next/font (§17.4: tanpa Inter/Roboto/system-ui).
+   Hanya font preset yang aktif yang menerima class, sehingga hanya itu yang
+   dipreload. */
+@theme inline {
+  --font-display: var(--font-class-display), Georgia, serif;
+  --font-body: var(--font-class-body), system-ui, sans-serif;
+}
+
+/* Skala tipografi desktop (>=1024px) naik sebagai token, bukan per komponen. */
+@media (width >= 1024px) {
+  :root {
+    --text-display: 2.75rem;
+    --text-display--line-height: 1.1;
+    --text-h1: 2rem;
+    --text-h1--line-height: 1.2;
+    --text-h2: 1.5rem;
+    --text-h2--line-height: 1.25;
+    --text-h3: 1.25rem;
+    --text-h3--line-height: 1.3;
+  }
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--color-control-border);
+  }
+
+  html {
+    /* Mencegah <body> menggulir horizontal; tabel lebar menggulir di dalam
+       kontainernya sendiri (§16). */
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: 1.6;
+  }
+
+  /* Fokus terlihat pada semua elemen interaktif (§17.7). */
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  /* Baris baru pada konten pengguna dipertahankan (§14.1). */
+  p[data-pre-line],
+  li[data-pre-line] {
+    white-space: pre-line;
+  }
+
+  /* Kurangi motion bila diminta pengguna: semua durasi jadi 0 (§11.4). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Transisi fungsional saja. Tidak ada hover-lift atau fade-in per section. */
+  .transition-func {
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: var(--space-4);
+    top: var(--space-4);
+    z-index: var(--z-dialog);
+    padding: var(--space-2) var(--space-4);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-control-border);
+    border-radius: var(--radius-md);
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+}
