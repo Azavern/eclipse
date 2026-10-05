@@ -14,13 +14,7 @@ import {
   validationErrorFrom,
 } from './schemas';
 import { env } from '@/lib/env';
-
-/**
- * Cookie penanda bahwa sesi ini arose dari verifikasi tautan akses, sehingga
- * `/set-password` boleh mengganti kata sandi tanpa password lama (§6.2).
- * Berumur pendek dan httpOnly.
- */
-const PWD_SETUP_COOKIE = 'pwd_setup';
+import { PWD_SETUP_COOKIE, PWD_SETUP_MAX_AGE, PWD_SETUP_VALUE } from './constants';
 
 /**
  * Login email + password.
@@ -105,12 +99,12 @@ export async function confirmAccessLink(_prev: FormState, fd: FormData): Promise
   }
 
   const store = await cookies();
-  store.set(PWD_SETUP_COOKIE, '1', {
+  store.set(PWD_SETUP_COOKIE, PWD_SETUP_VALUE, {
     httpOnly: true,
     sameSite: 'lax',
     secure: env.IS_PROD,
     path: '/',
-    maxAge: 60 * 15, // 15 menit
+    maxAge: PWD_SETUP_MAX_AGE,
   });
 
   redirect('/set-password');
@@ -128,7 +122,7 @@ export async function setPassword(_prev: FormState, fd: FormData): Promise<FormS
   const flag = store.get(PWD_SETUP_COOKIE)?.value;
 
   // Tanpa flag ini, sesi login biasa tidak boleh mengganti kata sandi.
-  if (flag !== '1') redirect('/');
+  if (flag !== PWD_SETUP_VALUE) redirect('/login');
 
   const parsed = setPasswordSchema.safeParse({
     password: fd.get('password'),

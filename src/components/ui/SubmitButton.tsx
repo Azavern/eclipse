@@ -17,12 +17,15 @@ export function SubmitButton({
   variant = 'primary',
   size = 'md',
   className,
+  disabled,
 }: {
   children: ReactNode;
   pendingLabel?: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
+  /** Menonaktifkan tombol selain saat aksi sedang berjalan. */
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
 
@@ -32,6 +35,7 @@ export function SubmitButton({
       variant={variant}
       size={size}
       loading={pending}
+      disabled={disabled}
       className={className}
     >
       {pending && pendingLabel ? pendingLabel : children}

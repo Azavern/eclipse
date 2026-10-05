@@ -5,11 +5,7 @@ import type { MembershipStatus } from '@/lib/supabase/database.types';
  * mengecek nama role, hanya permission (§6.3).
  */
 export type Permission =
-  | 'class.manage'
-  | 'members.manage'
-  | 'schedule.manage'
-  | 'events.manage'
-  | 'tasks.manage';
+  'class.manage' | 'members.manage' | 'schedule.manage' | 'events.manage' | 'tasks.manage';
 
 /**
  * Bentuk viewer yang dibutuhkan komponen, termasuk komponen klien.
@@ -29,3 +25,25 @@ export type Viewer = {
   isActiveMember: boolean;
   can: (permission: Permission) => boolean;
 };
+
+/**
+ * `Viewer` tanpa `can`.
+ *
+ * `Viewer` berisi fungsi, sedangkan Client Component hanya boleh menerima data
+ * yang bisa diserialisasi React. Jadi objek `Viewer` mentah tidak boleh dikirim
+ * ke komponen klien: React melempar "Functions cannot be passed directly to
+ * Client Components" dan halaman 500. Bentuk ini yang boleh melintasi batas.
+ */
+export type ViewerData = Omit<Viewer, 'can'>;
+
+/**
+ * Buang `can` sebelum objek viewer dikirim ke Client Component.
+ *
+ * Hanya tipe `ViewerData` yang aman diproses React. Menandai prop dengan
+ * `ViewerData` saja tidak cukup, karena React menyerialisasi nilai yang
+ * benar-benar dikirim, bukan tipe yang dianotasi.
+ */
+export function toViewerData(viewer: Viewer): ViewerData {
+  const { can: _can, ...data } = viewer;
+  return data;
+}

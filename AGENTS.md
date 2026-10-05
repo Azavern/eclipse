@@ -222,3 +222,49 @@ Before reporting work as done, confirm:
 - Documentation reflects the new behavior; transient findings are recorded in status documentation rather than in this file.
 
 The final report states the outcome, the affected files, the verification performed, remaining limitations or risks, and whether changes exist only locally (uncommitted or unpushed).
+
+## 18. AI Agent Notification
+
+When working on this project, use `notify-agent.ps1` to alert the user when their attention is required.
+
+### When to notify the user
+
+Run the notification script when:
+1. You need the user's input, decision, confirmation, credentials, or clarification before you can continue.
+2. You encounter a blocker that cannot reasonably be solved without the user's intervention.
+3. The requested task has been completed and the user should be informed that the agent is ready for review.
+4. You have reached a point where continuing would risk making an important assumption on the user's behalf.
+
+### How to notify
+
+From the project root, run:
+
+```powershell
+.\notify-agent.ps1 "Your message here"
+```
+
+The message should clearly explain why the user's attention is needed.
+
+Examples:
+
+```powershell
+.\notify-agent.ps1 "I need your decision about the authentication flow before continuing."
+```
+
+```powershell
+.\notify-agent.ps1 "The implementation is complete. Please review the result."
+```
+
+```powershell
+.\notify-agent.ps1 "I encountered a database migration error that requires your input."
+```
+
+### Important behavior
+
+* Do NOT wait silently for user input.
+* Do NOT repeatedly notify the user for the same issue.
+* Before asking the user a question, execute `notify-agent.ps1`.
+* If the task is complete and no further input is required, execute `notify-agent.ps1` once to indicate completion.
+* Do not use the notification for routine progress updates that do not require user attention.
+* Continue working autonomously whenever the next action is clear and safe.
+* Prefer solving problems yourself rather than interrupting the user unnecessarily.

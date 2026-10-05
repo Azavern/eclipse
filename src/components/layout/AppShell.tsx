@@ -3,7 +3,7 @@ import { SkipLink } from '@/components/ui/Section';
 import { SidebarNav } from './SidebarNav';
 import { BottomNav } from './BottomNav';
 import { TopBar, type ClassIdentity } from './TopBar';
-import type { NavItem } from './NavItems';
+import type { NavEntry } from './NavItems';
 import type { Viewer } from '@/lib/visibility/types';
 
 /**
@@ -24,7 +24,7 @@ export function AppShell({
   children,
 }: {
   viewer: Viewer;
-  navItems: NavItem[];
+  navItems: NavEntry[];
   identity: ClassIdentity;
   timezone: string;
   children: ReactNode;

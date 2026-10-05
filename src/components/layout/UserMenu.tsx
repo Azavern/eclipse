@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, LogOut, Settings, UserRound } from 'lucide-react';
 import { Disclosure, DisclosureItem } from '@/components/ui/Disclosure';
 import { Avatar } from '@/components/ui/Avatar';
-import type { Viewer } from '@/lib/visibility/types';
+import type { ViewerData } from '@/lib/visibility/types';
 import { signOut } from '@/features/auth/actions';
 
 /**
  * Menu pengguna. Grup admin (Pengaturan) hanya muncul bila memang punya izin,
  * bukan disembunyikan lalu masih bisa dijangkau lewat URL (§10.1).
  */
-export function UserMenu({ viewer }: { viewer: Viewer }) {
+export function UserMenu({ viewer }: { viewer: ViewerData }) {
   const router = useRouter();
 
   const hasAnyPermission = viewer.permissions.length > 0;

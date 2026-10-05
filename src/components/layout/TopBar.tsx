@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Viewer } from '@/lib/visibility/types';
+import { toViewerData } from '@/lib/visibility/types';
 import { ButtonLink } from '@/components/ui/Button';
 import { UserMenu } from './UserMenu';
 import { StorageImage } from '@/components/storage/StorageImage';
@@ -48,7 +49,9 @@ export function TopBar({
         </Link>
 
         {viewer.isSignedIn ? (
-          <UserMenu viewer={viewer} />
+          // `can` dibuang di sini: UserMenu adalah Client Component dan objek
+          // Viewer mentah berisi fungsi yang tidak bisa diserialisasi React.
+          <UserMenu viewer={toViewerData(viewer)} />
         ) : (
           <nav aria-label="Halaman kelas" className="flex items-center gap-1">
             {navItems

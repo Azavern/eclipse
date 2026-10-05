@@ -56,7 +56,11 @@ function buildCsp(nonce: string): string {
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // 'unsafe-eval' HANYA di development: React dan overlay Next.js memakai
+    // eval() saat dev untuk menyusun call stack. Tanpa itu browser memblokirnya
+    // dan console menampilkan "eval() is not supported in this environment" di
+    // setiap halaman. Produksi TIDAK PERNAH mendapat directive ini (§23).
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${env.IS_PROD ? '' : " 'unsafe-eval'"}`,
     `style-src 'self' 'nonce-${nonce}'`,
     `img-src 'self' data: blob: ${storageHost}`,
     "font-src 'self'",
@@ -66,7 +70,7 @@ function buildCsp(nonce: string): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    ...(env.IS_PROD ? ["upgrade-insecure-requests"] : []),
+    ...(env.IS_PROD ? ['upgrade-insecure-requests'] : []),
   ].join('; ');
 }
 

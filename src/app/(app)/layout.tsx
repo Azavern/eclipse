@@ -1,5 +1,5 @@
 import { AppShell } from '@/components/layout/AppShell';
-import { NAV_ITEMS, type NavItem } from '@/components/layout/NavItems';
+import { NAV_ITEMS, type NavEntry } from '@/components/layout/NavItems';
 import { getViewer, getVisibilityMap } from '@/lib/visibility/server';
 import { getClassIdentity } from '@/features/class/queries';
 
@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
   ]);
 
   // Nav hanya menampilkan halaman yang benar-benar boleh dibuka viewer ini.
-  const navItems: NavItem[] = NAV_ITEMS.filter((item) => map[item.key]?.allowed);
+  const navItems: NavEntry[] = NAV_ITEMS.filter((item) => map[item.key]?.allowed);
 
   return (
     <AppShell

@@ -3,8 +3,8 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import type { Audience, VisibilityKey } from '@/lib/visibility/registry';
-import { narrower, pageCeiling, VISIBILITY_BY_KEY, WIDEST_AUDIENCE } from '@/lib/visibility/registry';
+import type { Audience, VisibilityEntry, VisibilityKey } from '@/lib/visibility/registry';
+import { ceilingNote, VISIBILITY_BY_KEY } from '@/lib/visibility/registry';
 import { safeRedirect } from '@/lib/safe-redirect';
 import type { Permission, Viewer } from '@/lib/visibility/types';
 
@@ -46,11 +46,15 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   };
 });
 
-export type VisibilityEntry = {
-  own: Audience;
-  effective: Audience;
-  allowed: boolean;
-};
+/**
+ * Bentuk satu baris peta visibilitas. Didefinisikan di sini agar modul server
+ * tetap punya satu nama; definisi aslinya ada di ./registry supaya editor
+ * visibilitas bisa memakainya tanpa menarik modul server-only.
+ */
+export type { VisibilityEntry };
+
+/** Logika murni; implementasi ada di ./registry agar bisa dipakai komponen klien. */
+export { ceilingNote };
 
 /**
  * Peta visibilitas untuk viewer saat ini, satu RPC per request (27 baris).
@@ -112,36 +116,6 @@ export async function canShow(key: VisibilityKey): Promise<boolean> {
   if (dataSource && !map[dataSource]?.allowed) return false;
 
   return true;
-}
-
-/**
- * Penjelasan singkat bila pilihan pengguna lebih luas dari yang benar-benar
- * berlaku, mis. "Dibatasi halaman Anggota: hanya anggota kelas" (§7.8).
- */
-export function ceilingNote(
-  key: VisibilityKey,
-  choice: Audience,
-  map: Record<VisibilityKey, VisibilityEntry>,
-): string | null {
-  const ceiling = pageCeiling(key);
-  if (!ceiling) return null;
-
-  const pageValue = map[ceiling]?.effective;
-  if (!pageValue) return null;
-
-  const effective = narrower(narrower(choice, WIDEST_AUDIENCE[key]), pageValue);
-  if (effective === choice) return null;
-  return `Dibatasi halaman ${VISIBILITY_BY_KEY[ceiling].label}: hanya ${labelFor(effective)}.`;
-}
-
-function labelFor(audience: Audience): string {
-  return {
-    public: 'siapa saja',
-    authenticated: 'yang sudah masuk',
-    class_member: 'anggota kelas',
-    class_admin: 'pengelola kelas',
-    self: 'pemiliknya sendiri',
-  }[audience];
 }
 
 /**

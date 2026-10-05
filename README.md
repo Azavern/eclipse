@@ -37,12 +37,36 @@ sampai ke klien dan cookie sesi tetap `httpOnly`.
 
 ## Migrasi database
 
-0001–0002 sudah diterapkan. Untuk 0003–0008, ikuti
-[`scripts/apply-migrations.md`](./scripts/apply-migrations.md), lalu:
+Delapan migrasi di `supabase/migrations/` **sudah diterapkan**. Sumber kebenaran
+adalah folder tersebut; schema change tidak pernah dieksekusi lewat Supabase
+Dashboard SQL Editor (`AGENTS.md` §Database Rules). Untuk migrasi berikutnya:
 
 ```bash
-npm run db:types    # regenerate src/lib/supabase/database.types.ts
+npx supabase migration list      # sudah terpasang vs ada di repo
+npx supabase db push --dry-run   # periksa dulu tanpa menulis
+npx supabase db push
 ```
+
+Catatan dan query verifikasi ada di
+[`scripts/apply-migrations.md`](./scripts/apply-migrations.md). Tipe database
+saat ini masih ditulis manual — lihat bagian Blocker di
+[`docs/STATUS.md`](./docs/STATUS.md).
+
+## Admin pertama
+
+Ketua pertama dibuat lewat skrip, bukan lewat UI, karena signup Supabase harus
+nonaktif di produksi. Skrip mencetak tautan akses sekali pakai ke stdout dan
+tidak pernah mencetak atau menyimpan kata sandi:
+
+```bash
+BOOTSTRAP_ADMIN_EMAIL=ketua@contoh.id \
+BOOTSTRAP_ADMIN_NAME="Nama Ketua" \
+npm run bootstrap
+```
+
+Skrip idempoten: menjalankannya ulang untuk akun yang sama tidak membuat user
+kedua. Sebaliknya ia menolak saat keanggotaan sudah `active` — pengalihan admin
+lewat UI, bukan diam-diam.
 
 ## Perintah
 
@@ -57,6 +81,7 @@ npm run db:types    # regenerate src/lib/supabase/database.types.ts
 | `npm run check:tokens` | Menolak hex dan arbitrary value di komponen |
 | `npm run check:boundaries` | Menolak impor lintas lapisan yang salah |
 | `npm run db:types` | Generate tipe database dari Supabase |
+| `npm run bootstrap` | Membuat Ketua pertama + tautan akses sekali pakai |
 
 ## Model hak akses
 

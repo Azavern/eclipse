@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { NavItem } from './NavItems';
+import type { NavEntry } from './NavItems';
+import { NAV_ICONS } from './NavIcons';
 import { isActive } from './SidebarNav';
 
 /**
@@ -12,7 +13,7 @@ import { isActive } from './SidebarNav';
  * Item yang tidak boleh dibuka ikut disembunyikan di sini, sama seperti di
  * sidebar, karena keduanya membaca daftar nav yang sama.
  */
-export function BottomNav({ items }: { items: readonly NavItem[] }) {
+export function BottomNav({ items }: { items: readonly NavEntry[] }) {
   const pathname = usePathname();
 
   return (
@@ -24,7 +25,7 @@ export function BottomNav({ items }: { items: readonly NavItem[] }) {
       <ul className="mx-auto flex max-w-content items-stretch justify-around">
         {items.map((item) => {
           const active = isActive(pathname, item.href);
-          const Icon = item.icon;
+          const Icon = NAV_ICONS[item.key];
           return (
             <li key={item.href} className="flex-1">
               <Link

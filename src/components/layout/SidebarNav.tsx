@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { NavItem } from './NavItems';
+import type { NavEntry } from './NavItems';
+import { NAV_ICONS } from './NavIcons';
 
 /**
  * Sidebar untuk desktop (>=1024px). Pada lebar lebih kecil digantikan
@@ -11,7 +12,7 @@ import type { NavItem } from './NavItems';
  * Penanda aktif memakai border kiri + latar, bukan warna teks saja, dan
  * `aria-current="page"` announcing posisi ke pembaca layar.
  */
-export function SidebarNav({ items }: { items: readonly NavItem[] }) {
+export function SidebarNav({ items }: { items: readonly NavEntry[] }) {
   const pathname = usePathname();
 
   return (
@@ -22,7 +23,7 @@ export function SidebarNav({ items }: { items: readonly NavItem[] }) {
       <ul className="flex flex-col gap-1 p-4">
         {items.map((item) => {
           const active = isActive(pathname, item.href);
-          const Icon = item.icon;
+          const Icon = NAV_ICONS[item.key];
           return (
             <li key={item.href}>
               <Link

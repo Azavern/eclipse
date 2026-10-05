@@ -31,19 +31,21 @@ Pekerjaan ini ada di working tree lokal. Belum ada commit, belum ada push.
 - `.env.example` tanpa nilai nyata.
 
 ### Fase 1 — Database
-Delapan migration ditulis:
+Delapan migration ditulis **dan sudah diterapkan** ke project Supabase lewat
+`npx supabase db push`. Semuanya diberi nama berformat timestamp CLI:
 
 | File | Isi |
 |---|---|
-| `0001_schema_enums.sql` … `0002_tables.sql` | Sudah diterapkan (oleh pemilik proyek) |
-| `0003_helpers_visibility.sql` | Helper auth + resolver `app.own_audience` / `effective_audience` / `can_view` |
-| `0004_triggers.sql` | Invarian, guard kolom, last-admin, batas baris, log aktivitas |
-| `0005_privileges_rls.sql` | Default-deny + seluruh policy RLS |
-| `0006_views_rpc.sql` | View bermasker + RPC |
-| `0007_storage.sql` | Bucket private + policy Storage |
-| `0008_reference_data.sql` | Katalog 27 key, kelas Eclipse, dua role |
+| `20261005120000_initial_schema.sql` | tabel inti kelas, anggota, jadwal |
+| `20261005120100_second_schema.sql` | tabel konten (tugas, event, sosial, portofolio) |
+| `20261005120200_helpers_visibility.sql` | Helper auth + resolver `app.own_audience` / `effective_audience` / `can_view` |
+| `20261005120300_triggers.sql` | Invarian, guard kolom, last-admin, batas baris, log aktivitas |
+| `20261005120400_privileges_rls.sql` | Default-deny + seluruh policy RLS |
+| `20261005120500_views_rpc.sql` | View bermasker + RPC |
+| `20261005120600_storage.sql` | Bucket private + policy Storage |
+| `20261005120700_reference_data.sql` | Katalog 27 key, kelas Eclipse, dua role |
 
-**BELUM DITERAPKAN.** Lihat bagian "Blocker".
+Alur migrasi berikutnya ada di `scripts/apply-migrations.md`.
 
 ### Fase 2 — Auth, sesi, shell, token
 - `src/proxy.ts`: refresh cookie sesi (`getUser()`) + nonce CSP per request.
@@ -52,11 +54,76 @@ Delapan migration ditulis:
   `requireView`, `requirePermission`.
 - `src/features/auth/`: login, konfirmasi tautan akses, set password, ganti
   sandi, keluar.
+- `/auth/confirm` dan `/set-password` (halamannya; aksinya sudah ada sebelumnya).
+- `scripts/bootstrap-admin.ts`: membuat Ketua pertama dan menerbitkan tautan akses
+  sekali pakai.
 - `src/components/ui/`: primitive lengkap dengan seluruh state (§11.2).
 - `/dev/ui`: galeri state, `notFound()` di produksi.
 - `AppShell`, `SidebarNav` (≥1024 px), `BottomNav` (<1024 px), `TopBar`,
   `UserMenu`.
 - Injeksi theme runtime di root layout, divalidasi ulang oleh `ThemeSchema`.
+
+### Fase 3 (selesai) — Identitas, tautan, tema, visibilitas, gambar
+- `src/features/class/schemas.ts`: validasi Zod yang menyalin CHECK constraint
+  DB. `timezone` sengaja hanya 3 nilai (`Asia/Jakarta`/`Makassar`/`Jayapura`)
+  karena itulah yang diizinkan CHECK — bukan daftar IANA bebas.
+- `src/features/class/actions.ts`: `updateClassIdentity`, gate `class.manage`,
+  dan memakai `.select('id')` supaya update yang tidak cocok baris manapun
+  dilaporkan sebagai gagal, bukan sukses (§10).
+- `/settings/class`: nama, kode, tagline, deskripsi, sorotan, tautan sorotan,
+  zona waktu.
+- `/class`: halaman publik, tiap field di-gate dengan key `field.class.*` sendiri.
+- CRUD `class_links` di `/settings/class`: tambah, ubah, hapus (hapus lewat
+  `ConfirmDialog`). Host URL divalidasi per platform lewat `socialUrlSchema`.
+- `/settings/visibility`: satu select per key (27 key, scope class), opsi
+  dibatasi `allowedAudiences(key)`, dan penjelasan “dibatasi halaman X” dihitung
+  ulang di browser memakai fungsi `ceilingNote` yang sama dengan server.
+- `/settings/theme`: preset tata letak + pasangan font, sepuluh pemilih warna,
+  dan pratinjau kontras langsung memakai `contrastPairs` yang sama dengan
+  validasi server.
+- Upload logo & cover di `/settings/class`, dengan pratinjau dan empty state.
+  `uploadClassImage` mengunggah dulu, baru menulis path; bila penulisan baris
+  gagal objek baru di-`rollback`, dan objek lama dibuang **setelah** baris
+  berhasil diperbarui (§13.4).
+
+Tautan kelas sengaja **tidak** diisi data contoh: proyek ini melarang data
+karangan, jadi empty state-nya yang memandu Ketua menambahkan tautan sendiri.
+
+### Temuan: kontras tema divalidasi di tiga lapis, bukan di CHECK DB
+
+`app.theme_is_valid` di database hanya memeriksa **bentuk** (layout, font_preset,
+10 kunci palet berupa hex) — bukan kontras. Terbukti saat pengujian: palet putih
+atas putih **diterima** database. Itu memang desainnya (komentar di migrasi
+mengatakannya), dan tiga lapis sisanya menutup celah itu:
+
+1. Tulis — `ThemeSchema` di `updateTheme` menolak palet yang kontrasnya < 4,5:1.
+2. Baca injeksi — `resolveTheme` di root layout memvalidasi lalu jatuh ke
+   `DEFAULT_THEME`.
+3. Baca query — `getClassTheme` melakukan hal yang sama.
+
+Jadi menulis langsung lewat service role tetap bisa memasukkan palet tak
+terbaca, tetapi tidak akan pernah sampai ke layar.
+
+Belum di Fase 3: unggah logo/cover.
+
+### Catatan arsitektur: logika visibilitas pindah ke registry
+
+`ceilingNote` dan `VisibilityEntry` pindah dari `lib/visibility/server.ts` ke
+`lib/visibility/registry.ts` (modul tanpa `server-only`) dan tetap di-re-export
+dari `server.ts`. Alasannya: editor visibilitas adalah Client Component dan
+perlu menghitung penjelasan yang sama persis dengan server. Menyalin logikanya
+berisiko keduanya berbeda; berbagi satu implementasi murni lebih aman.
+
+### CSP: `unsafe-eval` hanya di development
+
+React dan overlay Next.js memakai `eval()` saat dev, dan CSP menolaknya sehingga
+console dipenuhi “eval() is not supported in this environment” di setiap
+halaman. `script-src` kini menambah `'unsafe-eval'` **hanya** saat
+`NODE_ENV !== production`. Diverifikasi pada dua mode:
+
+- development: `script-src 'self' 'nonce-…' 'strict-dynamic' 'unsafe-eval'`
+- production: `script-src 'self' 'nonce-…' 'strict-dynamic'` — **tanpa**
+  `unsafe-eval`.
 
 ### Fase 6 (sebagian) — Home
 - Section di-gate per key visibility, mengikuti preset layout.
@@ -158,16 +225,160 @@ komentar atau tidak dipakai sama sekali, lalu dihapus (`AGENTS.md` §6). Fungsi
 `isUpcoming`, `formatRange`, `formatDateTime`, dan `MOBILE_HOME_ORDER` tetap
 karena sekarang dipakai atau diuji.
 
+### Verifikasi database & akun Ketua (5 Oktober 2026)
+
+Schema sudah diperiksa langsung ke project Supabase (bukan lewat migration file),
+sehingga yang tercatat di sini adalah keadaan nyata:
+
+- `visibility_catalog` = **27 key**.
+- `class_identity_v` mengembalikan `Eclipse` / `Asia/Jakarta`.
+- Role `ketua` (5 permission) dan `member` (0 permission).
+- Bucket `class-media` dan `member-media`: `public = false`,
+  `file_size_limit = 2097152`, hanya JPEG/PNG/WebP.
+- **Anonim ditolak** di `member_profiles` dengan `42501` (default-deny RLS
+  benar-benar aktif).
+- RPC `get_visibility_map` anonymously: `page.home` → `effective_audience =
+  public`, `allowed = true` (kasus E1).
+
+`scripts/bootstrap-admin.ts` sudah dijalankan dan akun Ketua pertama berhasil
+dibuat. Yang terverifikasi setelahnya:
+
+- User Auth `rneclipseleader@gmail.com` ada.
+- `memberships`: status `invited`, role `ketua`, `joined_at` NULL.
+- `member_profiles`: `username = rizaldi_naue`, `full_name = Rizaldi Naue`.
+- `get_viewer_context` sebagai anonim tetap mengembalikan `user_id`/`status`/
+  `role_name` NULL — tidak bocor.
+
+Alur tautan akses **sudah diuji sampai habis**, bukan hanya lewat probe service
+role. Diuji dengan client anon yang memakai sesi user asli:
+
+1. `generateLink(type: 'recovery')` → tautan terbit.
+2. `verifyOtp({ token_hash, type: 'recovery' })` → **OK**, sesi terbentuk.
+3. `get_viewer_context` saat itu: `status = invited`, `role_name = Ketua`,
+   `permissions = []` (izin memang kosong sebelum aktif).
+4. `activate_my_membership()` → **OK**.
+5. Setelahnya: `status = active`, `joined_at` terisi.
+6. `get_viewer_context` sebagai user itu: role `Ketua` dengan 5 permission
+   (`class.manage`, `members.manage`, `schedule.manage`, `events.manage`,
+   `tasks.manage`) — RLS dan pemberian izin terbukti bekerja untuk user nyata.
+7. `get_visibility_map` untuk Ketua: 26 dari 27 key `allowed`.
+
+Akibatnya akun Ketua sekarang berstatus **`active`**, bukan `invited`, dan
+`bootstrap-admin.ts` akan menolak dijalankan lagi untuk akun ini (meminta
+pengalihan lewat UI) — itu perilaku yang memang dimaksud. Jalur `invited →
+active` sudah teruji di titik 3–4.
+
+Yang **masih** belum diuji adalah lapisan Next.js di atasnya: `confirmAccessLink`
+dan `setPassword` baru dicek sampai 200, belum sampai `updateUser({ password })`
+melalui Server Action.
+
+### Verifikasi identitas kelas (Fase 3)
+
+Diuji dengan sesi Ketua sungguhan, memakai payload yang sama persis dengan yang
+dikirim `updateClassIdentity`:
+
+- `signInWithPassword` → OK.
+- Baca `classes` lewat RLS `class.manage` → OK.
+- `update` 7 field → **OK, 1 baris terpengaruh** (bukan 0 yang dilaporkan sukses).
+- Menulis `created_at` (di luar GRANT) → **DITOLAK**: `permission denied`.
+- `timezone = 'Europe/Berlin'` → **DITOLAK** oleh `classes_timezone_check`.
+- `code = NULL` → OK (kolom nullable).
+- `/class` sebagai anonim merender tagline, deskripsi, sorotan, dan zona waktu;
+  label "Kode kelas" **tidak** muncul karena nilainya NULL — persis aturan §7.8
+  (tidak ada label kosong yang membocorkan "ada tapi disembunyikan").
+- `/settings/class` tanpa sesi → 307 ke `/login` (gerbang bekerja).
+
+### Bug kritis: fungsi melintasi batas Server → Client Component
+
+Beranda **500 untuk setiap anggota yang sudah masuk**. Dua sumbernya, keduanya
+baru terlihat ketika payload lintas batas benar-benar dirender:
+
+1. `NAV_ITEMS` membawa `icon` berupa komponen lucide (`forwardRef` = objek
+   `{$$typeof, render}`). `NAV_ITEMS` dibaca di `(app)/layout.tsx` (Server
+   Component) lalu dikirim ke SidebarNav/BottomNav yang `'use client'`. React
+   menolak menyerialisasi komponen → "Functions cannot be passed directly to
+   Client Components". Ini juga terjadi untuk anonim, karena anon tetap melihat dua
+   halaman (`page.home`, `page.class_about`) dan ikon `School` ikut terbawa.
+2. Objek `viewer` membawa `can: (permission) => boolean`. `TopBar` (server)
+   meneruskannya ke `UserMenu` yang `'use client'` — dan `UserMenu` justru
+   tidak pernah memakai `can`.
+
+Perbaikan:
+
+- `NAV_ITEMS` sekarang hanya metadata (`href`, `label`, `key`); ikon dipetakan
+  di `NavIcons.tsx` yang hanya diimpor komponen klien. Tipe `NavKey` membuat
+  menambah item nav gagal compile sampai ikonnya ditambahkan.
+- `ViewerData` = `Viewer` tanpa `can`, dibuat oleh `toViewerData`. Menandai
+  tipe prop saja tidak cukup — React menyerialisasi nilai yang benar-benar
+  dikirim — jadi `can` dibuang di `TopBar` tepat sebelum masuk ke `UserMenu`.
+
+`tests/unit/nav-items.test.ts` (7 tes) mengunci kedua invarian: setiap item nav
+harus serializable, dan `toViewerData` tidak boleh meninggalkan fungsi maupun
+simbol. Tes pertama gagal pada versi yang lama.
+
+Setelah perbaikan, dev server dijalankan ulang: `GET /` 7× 200, **0** error
+"Functions cannot be passed", **0** status 500.
+
+### Verifikasi Storage (upload gambar)
+
+Diputuskan dengan PNG 1×1 asli (70 byte) dan JWT Ketua, lewat jalur yang sama
+dengan `uploadClassImage`:
+
+- Unggah ke `{class_id}/logo/{uuid}.png` → **OK**.
+- Unggah ke folder yang salah (`{class_id}/wat/…`) → **DITOLAK**:
+  `new row violates row-level security policy`.
+- Menulis `logo_path` → OK.
+- `createSignedUrl` baru berhasil **sesudah** `logo_path` tersimpan — policy
+  `select` untuk `class-media` bergantung pada path yang ada di
+  `class_identity_v`. Ini yang menentukan urutan: tulis path dulu, baru
+  menyajikan gambar.
+- Jejak uji dibersihkan (`logo_path`/`cover_path` kembali NULL, objek dihapus).
+
+Tautan kelas juga diuji: insert OK, update 1 baris, `custom` tanpa label
+**DITOLAK** CHECK, `http://` **DITOLAK** CHECK, **anon INSERT ditolak**
+(`permission denied`), delete 1 baris.
+
+Tema diuji: `layout` → `profile_focused` OK; `layout: 'gabar'` dan
+`primary: 'red'` **DITOLAK** CHECK `classes_theme_is_valid` / `app.theme_is_valid`.
+
+`save_class_visibility` juga diuji langsung dengan sesi Ketua sungguhan:
+menyetel `page.schedule` ke `class_admin` → baris override terbentuk dengan
+`owner_id is null`, anonim tetap `allowed = false` (tidak bocor), Ketua melihat
+`own = effective = class_admin`, lalu `audience: null` menghapus baris itu lagi
+sampai nol.
+
+### Insiden: `database.types.ts` tertinggal 0 byte
+
+File tipe database sempat **kosong** dan sempat membuat seluruh `.from()`/`.rpc()`
+kehilangan tipe. Penyebabnya bukan ditulis manual, tapi perintah
+`supabase gen types typescript --local > src/lib/supabase/database.types.ts`:
+redirection shell memotong file sebelum perintah berjalan, dan perintah itu
+pasti gagal di lingkungan ini karena tidak ada Docker. File dipulihkan dari HEAD
+tanpa kehilangan isi (git status bersih setelah restore), lalu akarnya dibetulkan
+menjadi `scripts/gen-db-types.mjs` (T-11). Perbaikannya diuji: menjalankan
+`npm run db:types` di lingkungan tanpa Docker tetap exit 1 dan file-nya utuh.
+
+### Smoke test HTTP
+
+Yang sudah dipastikan lewat smoke test HTTP terhadap dev server:
+
+| Route | Hasil |
+|---|---|
+| `/` | 200 (home publik) |
+| `/login` | 200 |
+| `/auth/confirm` | 200, form “Lanjutkan” ada, `token_hash` kosong di HTML server |
+| `/set-password` tanpa cookie `pwd_setup` | 307 → `/login` (gate bekerja) |
+| `/tidak-ada` | 404 |
+
 ### Yang TIDAK terverifikasi
 
-- **RLS, view, RPC, trigger, dan policy Storage.** Semua SQL baru belum
-  diterapkan ke database, jadi tidak ada satu pun aturan yang bisa diuji.
-  `pgTAP` tidak dapat dijalankan tanpa Docker.
-- **Autentikasi end-to-end.** Tidak ada akun Ketua, jadi alur tautan akses →
-  set password → onboarding belum pernah dieksekusi.
 - **Responsif di enam lebar** (360/480/768/1024/1280/1536). Belum diukur.
 - **Audit keyboard dan kontras** dengan alat otomatis.
 - **E2E Playwright.** Belum ditulis.
+- **Server Action `updateClassIdentity` dan `confirmAccessLink`/`setPassword`**
+  diuji lewat HTTP pada level 200, bukan dengan mengetuk form sungguhan. Yang
+  sudah terbukti adalah lapisan database di bawahnya (lihat bagian
+  verifikasi identitas kelas).
 - **Keamanan produksi**: pengaturan signup di dashboard Auth, rate limit, region,
   CSP pada domain nyata.
 
@@ -175,20 +386,11 @@ karena sekarang dipakai atau diuji.
 
 ## Blocker
 
-### 1. Migrasi 0003–0008 belum diterapkan
-
-Lingkungan ini tidak punya `psql`, Docker, maupun Supabase access token.
-Petunjuk lengkap ada di [`scripts/apply-migrations.md`](../scripts/apply-migrations.md).
-
-Selama belum diterapkan, halaman membaca kosong dan log dev menampilkan:
-`Could not find the table 'public.class_identity_v' in the schema cache` — itu
-diharapkan, bukan bug.
-
-### 2. `database.types.ts` ditulis manual
+### 1. `database.types.ts` ditulis manual
 
 CLI `supabase gen types` memerlukan Docker atau access token. File
-`src/lib/supabase/database.types.ts` ditulis tangan dari migration 0001–0002 dan
-**harus di-regenerate** setelah migrasi diterapkan:
+`src/lib/supabase/database.types.ts` ditulis tangan dari migration awal dan
+**perlu di-regenerate**:
 
 ```bash
 npm run db:types
@@ -216,6 +418,10 @@ yang di-generate:
 | T-05 | `npm`, bukan `pnpm` | Lockfile yang ada di repo adalah `package-lock.json`, dan pnpm tidak terpasang. Mengganti manajer paket berarti mengganti lockfile — keputusan yang layak diambil terpisah. |
 | T-06 | `check-tokens` mengecualikan `env(...)` | `pb-[env(safe-area-inset-bottom)]` berasal dari perangkat, bukan keputusan desain. |
 | T-07 | CSP dibangun di `proxy.ts`, bukan `next.config.ts` | Butuh nonce per request dan host Storage dari env. |
+| T-08 | Fragment URL di `/auth/confirm` dibersihkan saat submit, bukan langsung setelah dibaca | Blueprint §6.2 menyebut "setelah membacanya". Membersihkan saat submit membuat tautan tetap bisa dipakai bila halaman ter-refresh sebelum diklik, dan tidak perlu menyimpan token di state. `useSyncExternalStore` dipakai (bukan `useState` di dalam effect) karena aturan `react-hooks/set-state-in-effect` dan `react-hooks/refs` sama-sama melarang cara yang lebih sederhana. |
+| T-09 | `npm run bootstrap` / `npm run seed` memakai `--env-file=.env --env-file-if-exists=.env.local` | `node` biasa tidak memuat `.env` seperti Next.js; tanpa ini skrip selalu gagal dengan "env belum diisi". |
+| T-10 | `setPassword` mengarahkan anggota `invited` ke `/settings/profile?onboarding=1` sesuai blueprint §6.2, walau halamannya belum ada (Fase 4) | Konsekuensi: setelah aktivasi lewat tautan bootstrap, pengguna mendarat di 404 sampai Fase 4 selesai. Tautan kembali ke beranda tersedia dari halaman `not-found`. |
+| T-11 | `npm run db:types` memakai `scripts/gen-db-types.mjs`, bukan `supabase gen types > file` | Redirection shell memotong file tujuan SEBELUM perintah berjalan. Tanpa Docker/access token, `supabase gen types` pasti gagal dan meninggalkan `database.types.ts` **0 byte** — persis kejadian yang menewaskan file tipe 10 KB di sesi ini. Skrip baru menulis ke memory dulu dan hanya menimpa bila perintah keluar 0 dan hasilnya tidak kosong. |
 
 ---
 
@@ -224,14 +430,12 @@ yang di-generate:
 Sesuai §26.4 dan urutan fase §20, modul berikut **belum ada** dan bukan
 disembunyikan:
 
-- Fase 3: `/settings/class`, `/settings/theme`, `/settings/visibility`, `/class`,
-  upload gambar.
+- Fase 3: **selesai.**
 - Fase 4: anggota, profil, portofolio, social, `/settings/profile`,
   `/settings/account`, `/settings/members`.
 - Fase 5: jadwal, event, tugas beserta form dan detailnya.
-- `/auth/confirm`, `/set-password` (aksinya sudah ada, halamannya belum).
 - `/api/health`.
-- `scripts/bootstrap-admin.ts`, `scripts/seed-fixtures.ts`.
+- `scripts/seed-fixtures.ts`.
 - Tes pgTAP, Playwright e2e.
 
 ---

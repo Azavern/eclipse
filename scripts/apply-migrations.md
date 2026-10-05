@@ -1,24 +1,46 @@
-# Menjalankan migrasi 0003-0008
+# Migrasi database
 
-Migrasi 0001-0002 sudah diterapkan. Sisanya perlu dijalankan lewat SQL Editor di
-Supabase Dashboard, karena lingkungan ini tidak punya `psql`, Docker, maupun
-Supabase access token.
+> **Aturan (AGENTS.md §Database Rules):** `supabase/migrations/` adalah sumber
+> kebenaran. Schema change **tidak pernah** dieksekusi lewat Supabase Dashboard
+> SQL Editor. Selalu lewat Supabase CLI.
 
-## Urutan
+## Status: sudah diterapkan
 
-Jalankan file berikut **berurutan** di SQL Editor (New query → Run):
+Delapan migrasi sudah diterapkan ke project Supabase. Semuanya diberi nama
+berformat timestamp CLI:
 
-1. `supabase/migrations/0003_helpers_visibility.sql`
-2. `supabase/migrations/0004_triggers.sql`
-3. `supabase/migrations/0005_privileges_rls.sql`
-4. `supabase/migrations/0006_views_rpc.sql`
-5. `supabase/migrations/0007_storage.sql`
-6. `supabase/migrations/0008_reference_data.sql`
+| File                                    | Isi                                              |
+| --------------------------------------- | ------------------------------------------------ |
+| `20261005120000_initial_schema.sql`     | tabel inti kelas, anggota, jadwal                |
+| `20261005120100_second_schema.sql`      | tabel konten (tugas, event, sosial, portofolio)  |
+| `20261005120200_helpers_visibility.sql` | helper `app.*` + katalog visibilitas (27 key)    |
+| `20261005120300_triggers.sql`           | trigger guard, sinkronisasi profil, last-admin   |
+| `20261005120400_privileges_rls.sql`     | grant + RLS (default-deny)                       |
+| `20261005120500_views_rpc.sql`          | view bermasker + RPC                             |
+| `20261005120600_storage.sql`            | bucket `class-media` & `member-media`            |
+| `20261005120700_reference_data.sql`     | baris awal: kelas Eclipse, role `ketua`/`member` |
 
-## Verifikasi
+## Alur untuk migrasi berikutnya
 
-Jalankan query berikut setelah semua file selesai. Nilai yang diharapkan
-tertulis di komentar.
+```bash
+# 1. Lihat apa yang sudah diterapkan vs apa yang ada di repo.
+npx supabase migration list
+
+# 2. Periksa dulu tanpa menulis apa pun.
+npx supabase db push --dry-run
+
+# 3. Terapkan.
+npx supabase db push
+```
+
+Jangan pernah menjalankan ulang migrasi yang sudah applied. `create table` dan
+`create policy` tidak idempoten, jadi mengulanginya akan gagal dan meninggalkan
+skema setengah jadi.
+
+## Query verifikasi
+
+Query di bawah hanya **membaca** — aman dijalankan di mana saja, termasuk SQL
+Editor, untuk memeriksa hasil.
 
 ```sql
 -- Katalog visibility: 27 key
@@ -53,27 +75,19 @@ Hasil yang diharapkan:
   ( purposefully NULL sampai Ketua mengisinya — bukan data karangan)
 - kedua bucket `public = false`, `file_size_limit = 2097152`
 
-## Setelah itu
+## Tipe database
 
-Buat ulang tipe database dari skema yang sudah terpasang:
-
-```bash
-npm run db:types
-```
-
-Lalu jalankan tes unit dan build:
+`src/lib/supabase/database.types.ts` masih ditulis manual karena `supabase gen
+types` butuh Docker atau access token yang tidak tersedia di lingkungan ini.
 
 ```bash
-npm test
-npm run build
+npm run db:types   # butuh --local (Docker) atau access token
 ```
 
-## Catatan urutan
+Setelah di-regenerate, periksa dua hal sebelum commit — keduanya pernah
+menyulitkan:
 
-Migrasi 0005 mengaktifkan RLS dan mencabut hak akses, sedangkan view dan RPC
-baru ada di 0006. Ada jeda singkat di antara keduanya di mana tabel sudah
-terkunci tetapi view belum tersedia — halaman akan membaca kosong, bukan error.
-Jalankan 0005 dan 0006 dalam satu operasi bila SQL Editor mengizinkan.
-
-Jangan jalankan ulang migrasi yang sudah diterapkan; `CREATE OR REPLACE` dan
-`revoke` bersifat idempoten, tetapi `create table`/`create policy` tidak.
+1. Tipe baris harus `type X = { … }`, **bukan** `interface X`. `interface` tidak
+   punya implicit index signature, sehingga gagal memenuhi `Record<string,
+unknown>` dan seluruh `.from()` / `.rpc()` menjadi `never`.
+2. `Update` tidak boleh `never`; harus berupa objek.

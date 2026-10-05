@@ -295,3 +295,56 @@ export function pageCeiling(key: VisibilityKey): VisibilityKey | null {
   }
   return null;
 }
+
+/**
+ * Nilai select yang berarti "pakai bawaan katalog" — bukan audience tertentu.
+ * Server Action menerjemahkannya jadi `audience: null`, yaitu penghapusan
+ * override. Satu konstanta supaya klien dan server tidak memakai string kosong
+ * yang berbeda makna.
+ */
+export const ALLOW_DEFAULT = '';
+
+/**
+ * Bentuk satu baris peta visibilitas, sesuai yang dikembalikan
+ * `get_visibility_map`. Tipe ini diletakkan di modul yang aman dipakai klien
+ * supaya editor visibilitas bisa menghitung penjelasan tanpa menyentuh
+ * modul server-only.
+ */
+export type VisibilityEntry = {
+  own: Audience;
+  effective: Audience;
+  allowed: boolean;
+};
+
+function labelFor(audience: Audience): string {
+  return {
+    public: 'siapa saja',
+    authenticated: 'yang sudah masuk',
+    class_member: 'anggota kelas',
+    class_admin: 'pengelola kelas',
+    self: 'pemiliknya sendiri',
+  }[audience];
+}
+
+/**
+ * Penjelasan singkat bila pilihan pengguna lebih luas dari yang benar-benar
+ * berlaku, mis. "Dibatasi halaman Anggota: hanya anggota kelas" (§7.8).
+ *
+ * Fungsi murni: hanya membaca peta yang diberikan, jadi aman dipanggil dari
+ * komponen klien saat pilihan berubah.
+ */
+export function ceilingNote(
+  key: VisibilityKey,
+  choice: Audience,
+  map: Record<VisibilityKey, VisibilityEntry>,
+): string | null {
+  const ceiling = pageCeiling(key);
+  if (!ceiling) return null;
+
+  const pageValue = map[ceiling]?.effective;
+  if (!pageValue) return null;
+
+  const effective = narrower(narrower(choice, WIDEST_AUDIENCE[key]), pageValue);
+  if (effective === choice) return null;
+  return `Dibatasi halaman ${VISIBILITY_BY_KEY[ceiling].label}: hanya ${labelFor(effective)}.`;
+}
