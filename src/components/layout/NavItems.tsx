@@ -19,7 +19,7 @@ export type NavItem = {
  * `lucide-react` dan tetap serializable.
  *
  * Setiap item punya `key` page untuk pemeriksaan visibility, sehingga menu
- * otomatis menyesuaikan endowongan (§10.1).
+ * otomatis menyesuaikan tampilannya (§10.1).
  */
 export const NAV_ITEMS = [
   { href: '/', label: 'Beranda', key: 'page.home' },

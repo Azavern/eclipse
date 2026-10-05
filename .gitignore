@@ -11,3 +11,8 @@ test-results
 coverage
 .vercel
 .agents/mcp.json
+
+# Transkrip sesi agen — arsip lokal, bukan bagian repo. Sekaligus mencegah
+# Tailwind memindainya sebagai sumber class: contoh di dalamnya memuat isi
+# `env()` kosong sehingga CSS yang dihasilkan tak valid.
+freebuff-chat-*.md

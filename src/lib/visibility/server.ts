@@ -19,7 +19,7 @@ export type { Permission, Viewer };
  * dari DB setiap kali halaman dirender — bukan dari isi cookie (E9).
  *
  * Fungsi ini BUKAN sumber kebenaran otorisasi; RLS/view/RPC yang menegakkan.
- * Gunanya untuk UX: menentukan shell navigasi dan pesan mana yang tampil.
+ * gunanya untuk UX: menentukan shell navigasi dan pesan mana yang tampil.
  */
 export const getViewer = cache(async (): Promise<Viewer> => {
   const supabase = await createClient();

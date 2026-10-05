@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLASS_TIMEZONES,
   dayKey,
+  formatDateOnly,
   formatDateTime,
   formatRange,
   formatTime,
@@ -92,6 +93,19 @@ describe('format waktu pada timezone kelas', () => {
     expect(zoneLabel('Europe/Amsterdam')).toBe('Europe/Amsterdam');
     expect(isClassTimezone('Asia/Jakarta')).toBe(true);
     expect(isClassTimezone('Europe/Amsterdam')).toBe(false);
+  });
+});
+
+describe('formatDateOnly', () => {
+  it('merender kolom date tanpa menggeser hari karena zona mesin', () => {
+    // Nilai "2026-01-01" tidak punya zona. Kalau dikonversi lewat new Date(),
+    // mesin di offset negatif akan menampilkannya sebagai 31 Des 2025.
+    expect(formatDateOnly('2026-01-01')).toBe('1 Jan 2026');
+    expect(formatDateOnly('2026-10-05')).toBe('5 Okt 2026');
+  });
+
+  it('bentuk tak dikenal dikembalikan apa adanya, bukan error', () => {
+    expect(formatDateOnly('bukan tanggal')).toBe('bukan tanggal');
   });
 });
 

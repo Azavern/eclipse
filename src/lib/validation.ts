@@ -26,39 +26,6 @@ export const HTTPS_URL = z
     }
   });
 
-const hostMatches = (hostname: string, domain: string) =>
-  hostname === domain || hostname.endsWith(`.${domain}`);
-
-/** Host yang diterima per platform social (§14.3). */
-export const SOCIAL_HOSTS = {
-  instagram: ['instagram.com'],
-  linkedin: ['linkedin.com'],
-  github: ['github.com'],
-  tiktok: ['tiktok.com'],
-  x: ['x.com', 'twitter.com'],
-  website: null, // host https apa pun
-  custom: null,
-} as const satisfies Record<string, readonly string[] | null>;
-
-export function socialUrlSchema(platform: keyof typeof SOCIAL_HOSTS) {
-  return HTTPS_URL.superRefine((value, ctx) => {
-    const allowed = SOCIAL_HOSTS[platform];
-    if (!allowed) return; // website/custom: host bebas (tetap wajib https)
-    let hostname: string;
-    try {
-      hostname = new URL(value).hostname.toLowerCase();
-    } catch {
-      return; // sudah dilaporkan oleh HTTPS_URL
-    }
-    if (!allowed.some((d) => hostMatches(hostname, d))) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `Tautan harus berada di ${allowed.join(' atau ')}`,
-      });
-    }
-  });
-}
-
 /** Teks satu baris: trim, dan string kosong menjadi null untuk field opsional. */
 export const optionalText = (max: number, label: string) =>
   z

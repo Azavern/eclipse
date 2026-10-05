@@ -1,0 +1,132 @@
+import Link from 'next/link';
+import { getViewer, requireView } from '@/lib/visibility/server';
+import { getClassIdentity } from '@/features/class/queries';
+import { getTasks } from '@/features/tasks/queries';
+import { TASK_STATUS_LABEL, toTaskStatus } from '@/features/tasks/schemas';
+import { TASK_DISPLAY_META } from '@/features/tasks/display';
+import { taskDisplayStatus } from '@/lib/time/domain';
+import { formatDateTime } from '@/lib/time';
+import { PageHeader, List, ListItem } from '@/components/ui/Section';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState, NoAccess } from '@/components/ui/States';
+import { ButtonLink } from '@/components/ui/Button';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * Daftar tugas dengan filter `?status=active|completed|archived` (§10).
+ *
+ * `active` adalah default dan sengaja memuat tugas yang sudah lewat tenggat —
+ * selama belum ditandai selesai, tugas itu masih harus terlihat dan diberi
+ * label "Lewat tenggat". Arsip hanya tampil bila filternya dipilih.
+ */
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const gate = await requireView('page.tasks', '/tasks');
+  if (!gate) {
+    return (
+      <NoAccess
+        message="Halaman tugas belum dibuka untuk akunmu. Ketua kelas bisa mengubahnya."
+        backHref="/"
+      />
+    );
+  }
+
+  const [{ status: rawStatus }, viewer, identity] = await Promise.all([
+    searchParams,
+    getViewer(),
+    getClassIdentity(),
+  ]);
+  const status = toTaskStatus(rawStatus);
+  const tasks = await getTasks(status);
+  const timezone = identity?.timezone ?? 'Asia/Jakarta';
+  const canManage = viewer.can('tasks.manage');
+  const now = new Date();
+
+  const tabs = [
+    { status: 'active' as const, label: 'Aktif', href: '/tasks' },
+    { status: 'completed' as const, label: 'Selesai', href: '/tasks?status=completed' },
+    { status: 'archived' as const, label: 'Arsip', href: '/tasks?status=archived' },
+  ];
+
+  return (
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="Tugas"
+        description="Tugas aktif, riwayat yang selesai, dan arsip."
+        action={canManage ? <ButtonLink href="/tasks/new">Buat tugas</ButtonLink> : undefined}
+      />
+
+      <nav aria-label="Filter tugas" className="flex flex-wrap gap-4 border-b border-border-subtle">
+        {tabs.map((tab) => {
+          const active = tab.status === status;
+          return (
+            <Link
+              key={tab.status}
+              href={tab.href}
+              aria-current={active ? 'page' : undefined}
+              className={`-mb-px border-b-2 px-1 pb-2 text-label font-semibold transition-func ${
+                active
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-muted hover:text-text'
+              }`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {tasks.length === 0 ? (
+        status === 'active' ? (
+          <EmptyState
+            title="Tidak ada tugas aktif"
+            description={
+              canManage
+                ? 'Buat tugas agar anggota tahu apa yang harus dikerjakan.'
+                : 'Tugas baru akan muncul di sini.'
+            }
+            action={canManage ? { href: '/tasks/new', label: 'Buat tugas' } : undefined}
+          />
+        ) : (
+          <EmptyState
+            title={`Belum ada tugas berstatus ${TASK_STATUS_LABEL[status].toLowerCase()}`}
+            description="Tugas yang statusnya berubah akan tampil di sini."
+          />
+        )
+      ) : (
+        <List>
+          {tasks.map((task) => {
+            const display = taskDisplayStatus({ status: task.status, deadline: new Date(task.deadline) }, now);
+            const meta = TASK_DISPLAY_META[display];
+            const urgent = display === 'overdue' || display === 'due_soon';
+
+            return (
+              <ListItem key={task.id} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2
+                    className={`text-body text-text ${urgent ? 'font-semibold' : 'font-normal'}`}
+                  >
+                    {task.title}
+                  </h2>
+                  <Badge tone={meta.tone} icon={<meta.Icon className="size-3.5" />}>
+                    {meta.label}
+                  </Badge>
+                </div>
+                <p className="text-small text-text-muted">
+                  {formatDateTime(task.deadline, timezone)} · {task.target}
+                </p>
+                <Link href={`/tasks/${task.id}`} className="mt-1 text-small text-primary underline">
+                  Lihat tugas
+                </Link>
+              </ListItem>
+            );
+          })}
+        </List>
+      )}
+    </div>
+  );
+}

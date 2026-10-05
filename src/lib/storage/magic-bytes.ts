@@ -58,7 +58,7 @@ export type UploadCheck = { ok: true; kind: ImageKind } | { ok: false; message: 
 
 /**
  * Validasi lengkap sebuah file gambar yang dikirim lewat Server Action:
- * ukuran, magic bytes, dan一堆nya. Nilai `File` dan nama file dari klien
+ * ukuran, magic bytes, dan subtype aslinya. Nilai `File` dan nama file dari klien
  * diabaikan sepenuhnya.
  */
 export async function validateImageFile(file: File): Promise<UploadCheck> {

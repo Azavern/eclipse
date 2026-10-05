@@ -72,6 +72,23 @@ export function utcIsoToLocalInput(iso: string, timezone: string): string {
   return format(new TZDate(new Date(iso), toClassTimezone(timezone)), "yyyy-MM-dd'T'HH:mm");
 }
 
+/**
+ * Benar bila `localValue` adalah waktu dinding yang benar-benar ada di kalender
+ * pada zona kelas.
+ *
+ * Regex di `localInputToUtcIso` hanya memeriksa BENTUK. Nilai seperti
+ * "2026-13-45T99:99" lolos bentuk, lalu TZDate akan memutar komponennya menjadi
+ * waktu lain — artinya input tak tepercaya bisa tersimpan sebagai jam yang
+ * berbeda dari yang tertulis (§9). Uji bolak-balik menutup celah itu: konversi
+ * ke UTC lalu kembalikan ke waktu dinding harus menghasilkan string yang sama.
+ */
+export function isValidLocalInput(localValue: string, timezone: string): boolean {
+  const trimmed = localValue.trim();
+  const utc = localInputToUtcIso(trimmed, timezone);
+  if (!utc) return false;
+  return utcIsoToLocalInput(utc, timezone) === trimmed;
+}
+
 /** "Sen, 5 Okt" */
 export function formatDay(iso: string, timezone: string): string {
   return format(new TZDate(new Date(iso), toClassTimezone(timezone)), 'EEE, d MMM', {
@@ -89,6 +106,17 @@ export function formatRange(startIso: string, endIso: string, timezone: string):
   return `${start}–${end} ${zoneLabel(zone)}`;
 }
 
+/**
+ * "08.00–09.40 WIB" tanpa nama hari, untuk daftar yang sudah dikelompokkan
+ * per hari sehingga label harinya tidak perlu diulang.
+ */
+export function formatTimeRange(startIso: string, endIso: string, timezone: string): string {
+  const zone = toClassTimezone(timezone);
+  const start = format(new TZDate(new Date(startIso), zone), 'HH.mm', { locale: idLocale });
+  const end = format(new TZDate(new Date(endIso), zone), 'HH.mm', { locale: idLocale });
+  return `${start}–${end} ${zoneLabel(zone)}`;
+}
+
 /** "08.00 WIB" */
 export function formatTime(iso: string, timezone: string): string {
   const zone = toClassTimezone(timezone);
@@ -101,6 +129,24 @@ export function formatDateTime(iso: string, timezone: string): string {
   return `${format(new TZDate(new Date(iso), zone), 'd MMM yyyy, HH.mm', {
     locale: idLocale,
   })} ${zoneLabel(zone)}`;
+}
+
+/**
+ * Tanggal tanpa jam untuk kolom `date` (mis. `portfolio_items.occurred_on`).
+ *
+ * Nilai seperti "2026-10-05" tidak punya zona waktu, jadi tidak boleh
+ * dikonversi lewat `new Date(...)`: di mesin di negatif offset tanggalnya bisa
+ * bergeser sehari. Komponen dibaca manual lalu dirender pada zona tetap.
+ */
+export function formatDateOnly(dateOnly: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateOnly.trim());
+  if (!match) return dateOnly;
+  const [, y, m, d] = match;
+  return format(
+    new TZDate(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0, DEFAULT_TIMEZONE),
+    'd MMM yyyy',
+    { locale: idLocale },
+  );
 }
 
 /** Key pengelompokan per hari pada jadwal, mis. "2026-10-05". */

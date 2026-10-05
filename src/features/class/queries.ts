@@ -50,7 +50,7 @@ export async function getClassTheme(): Promise<Theme> {
 }
 
 /**
- * Row `classes` mentah. HanyaKetua yang bisa membacanya lewat RLS, jadi
+ * Row `classes` mentah. Hanya Ketua yang bisa membacanya lewat RLS, jadi
  * pemanggil wajib sudah mengecek permission `class.manage`.
  */
 export async function getEditableClass() {

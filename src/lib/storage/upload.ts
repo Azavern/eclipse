@@ -31,7 +31,7 @@ export type UploadResult =
  * UPDATE di Storage.
  *
  * Mengembalikan `rollback` untuk menghapus objek bila penyimpanan baris
- * subsequently gagal — kompensasi harus dijalankan, bukan objek dibiarkan
+ * gagal setelahnya — kompensasi harus dijalankan, bukan objek dibiarkan
  * menggantung (§13.4-5).
  */
 export async function uploadImage(

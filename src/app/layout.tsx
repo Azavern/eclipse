@@ -57,7 +57,7 @@ async function resolveTheme(): Promise<Theme> {
     return DEFAULT_THEME;
   } catch (cause) {
     // Saat build, Next mungkin belum menandai route sebagai dinamis sehingga
-    // `cookies()` melempar. Itu kondisinormal, bukan kegagalan aplikasi.
+    // `cookies()` melempar. Itu kondisi normal, bukan kegagalan aplikasi.
     const message = cause instanceof Error ? cause.message : String(cause);
     if (message.includes('Dynamic server usage')) return DEFAULT_THEME;
 

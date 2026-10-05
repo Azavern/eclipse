@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { HTTPS_URL, optionalText, requiredText, socialUrlSchema } from '@/lib/validation';
+import { HTTPS_URL, optionalText, requiredText } from '@/lib/validation';
+import {
+  SOCIAL_PLATFORMS,
+  SOCIAL_PLATFORM_LABEL,
+  socialUrlSchema,
+  type SocialPlatformName,
+} from '@/lib/social';
 
 /**
  * Zona waktu yang diterima database.
@@ -60,30 +66,16 @@ export const EMPTY_CLASS_IDENTITY: ClassIdentityValues = {
 };
 
 /**
- * Platform tautan kelas. Salinan dari enum `public.social_platform`; daftar
- * pendek dan stabil, jadi tidak perlu di-generate.
+ * Platform tautan kelas = platform tautan sosial (`class_links` dan
+ * `social_links` memakai enum `public.social_platform` yang sama). Konstanta
+ * didefinisikan sekali di `@/lib/social`; alias di sini supaya Feature class
+ * tetap bicara dalam istilah domainnya sendiri.
  */
-export const CLASS_LINK_PLATFORMS = [
-  'instagram',
-  'linkedin',
-  'github',
-  'tiktok',
-  'x',
-  'website',
-  'custom',
-] as const;
+export const CLASS_LINK_PLATFORMS = SOCIAL_PLATFORMS;
 
-export type ClassLinkPlatform = (typeof CLASS_LINK_PLATFORMS)[number];
+export const CLASS_LINK_PLATFORM_LABEL = SOCIAL_PLATFORM_LABEL;
 
-export const CLASS_LINK_PLATFORM_LABEL: Record<ClassLinkPlatform, string> = {
-  instagram: 'Instagram',
-  linkedin: 'LinkedIn',
-  github: 'GitHub',
-  tiktok: 'TikTok',
-  x: 'X',
-  website: 'Situs web',
-  custom: 'Lainnya',
-};
+export type ClassLinkPlatform = SocialPlatformName;
 
 /**
  * Skema tautan kelas.

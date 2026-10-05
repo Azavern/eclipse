@@ -12,7 +12,8 @@ Terakhir diperbarui: 5 Oktober 2026.
 
 Fondasi, lapisan database, sistem desain, dan kerangka aplikasi sudah terbangun
 dan **terverifikasi lewat lint, typecheck, unit test, build, dan render nyata**.
-Modul fitur (anggota, jadwal, event, tugas, pengaturan) **belum** diimplementasi.
+Fase 3, 4, dan 5 (anggota, profil, portofolio, sosial, pengaturan, jadwal,
+event, tugas) **selesai**. Yang tersisa: hardening/rilis Fase 7.
 
 Pekerjaan ini ada di working tree lokal. Belum ada commit, belum ada push.
 
@@ -63,6 +64,136 @@ Alur migrasi berikutnya ada di `scripts/apply-migrations.md`.
   `UserMenu`.
 - Injeksi theme runtime di root layout, divalidasi ulang oleh `ThemeSchema`.
 
+### Fase 4 (selesai) — Anggota & akun
+- `/settings/profile`: nama, username, nama panggilan, bio, dan unggah avatar.
+  Ini menutup redirect `setPassword` yang selama ini mendarat di 404 (T-10).
+  Gate-nya **keanggotaan aktif**, bukan sekadar signed-in — anggota `invited`
+  atau `inactive` punya sesi tapi belum berhak menyunting profil.
+- `getMyProfile` membaca **tabel dasar**, bukan `member_profile_v`. View sudah
+  apply masking visibility sehingga nickname/bio bisa NULL di sana padahal
+  aslinya terisi; form edit harus melihat nilai sebenarnya.
+- `updateMyProfile` sengaja TIDAK memakai RPC `update_member_identity` — fungsi
+  itu menuntut `members.manage` dan hanya untuk moderasi oleh Ketua. Anggota
+  menulis lewat policy `member_profiles_update_own`.
+- `/settings/account`: ganti kata sandi. Aksinya sudah ada sejak awal, halamannya
+  yang baru. Password lama wajib (re-auth) sebelum `updateUser`.
+- `/members`: grid anggota dari `member_profile_v`, tanpa pencarian (§10).
+- `/settings/members` (`members.manage`): undangan, nonaktifkan/aktifkan, hapus.
+  Email tidak ada di tabel maupun view, jadi `getManagedMembers` menggabungkan
+  `member_profile_v` + Auth Admin API. Keduanya berada di `features/member/actions.ts`
+  karena itulah satu-satunya tempat yang diizinkan memakai service role
+  (`no-restricted-imports` hanya mengecualikan `features/**/actions.ts`).
+
+Alur undangan (blueprint §10.2): `admin.createUser` (sandi acak, tak pernah
+dikembalikan) → `rpc('provision_member')` lewat **JWT Ketua** → bila RPC gagal,
+`admin.deleteUser` sebagai kompensasi → `generateLink` → URL ditampilkan sekali.
+Menu nonaktifkan/hapus dinonaktifkan untuk baris sendiri.
+
+### Lanjutan Fase 4 — profil publik, portofolio, sosial, visibilitas anggota
+- `/members/[username]`: profil publik dari `member_profile_v` + portofolio +
+tautan sosial. `null` (tidak ada ATAU tidak terlihat) sama-sama `notFound()`,
+jadi keberadaan anggota lain tidak bocor lewat perbedaan status.
+- `/settings/profile` kini juga memuat CRUD portofolio (media via
+`member-media`, media lama dibuang **setelah** baris tersimpan) dan tautan
+sosial, plus `AudienceSelect` per item (`item.portfolio`, `item.social_link`).
+- Editor visibilitas anggota (`MemberVisibilityEditor`) memakai
+`MEMBER_SCOPE_KEYS`; `saveMyVisibility` menulis lewat RPC `save_my_visibility`
+yang hanya menyentuh baris `owner_id = auth.uid()`.
+- `PortfolioList` menandatangani seluruh media sekali (`signMany`), bukan per
+item, supaya daftar tidak membuka N+1 permintaan Storage.
+
+### Perbaikan pada lanjutan Fase 4
+
+1. **Build gagal: impor lintas batas server/client.** `PortfolioEditor`
+   (Client Component) mengimpor `PORTFOLIO_LIMIT` — nilai runtime — dari
+   `features/portfolio/queries.ts` yang `server-only`, sehingga `next build`
+   menolak bundel klien. Konstanta pindah ke `features/portfolio/schemas.ts`
+   (modul bersama); tipe `PortfolioRow` tetap di `queries.ts` dan diimpor
+   type-only.
+2. **Halaman utama di luar route group `(app)`.** `/class`, `/members`, dan
+   `/settings/**` berdiri di luar grup sehingga tidak terbungkus `AppShell` —
+   tanpa TopBar, nav, dan skip link (terbukti dari render: `/class` tidak punya
+   `id="main"`). Dipindahkan ke dalam `(app)/`; URL tidak berubah.
+3. **Dev server 500 karena CSS hasil scan Tailwind.** Tailwind v4 memindai
+   seluruh project, termasuk transkrip sesi `freebuff-chat-*.md` yang memuat
+   contoh kelas dengan isi `env()` dan `calc()` kosong → rule CSS tak valid →
+   PostCSS gagal di dev (build produksi hanya warning). Pola
+   `freebuff-chat-*.md` ditambahkan ke `.gitignore`; Tailwind otomatis
+   mengabaikan berkas yang di-gitignore.
+4. **`getManagedMembers` tanpa pemeriksaan permission.** Fungsi ini diekspor
+   dari modul `'use server'`, jadi Next.js juga mendaftarkannya sebagai Server
+   Action yang bisa dipanggil klien; di dalamnya ia memakai service role untuk
+   membaca email. Gate di halaman hanya defense in depth — fungsi kini
+   memeriksa `members.manage` lebih dulu dan mengembalikan `[]` bila tidak
+   berhak.
+
+### Verifikasi siklus anggota
+
+Dijalankan terhadap database sungguhan:
+
+| Uji | Hasil |
+|---|---|
+| `createUser` + `provision_member` | OK |
+| `provision_member` dua kali untuk user sama | **DITOLAK** `23505` duplicate key |
+| Username bentrok dengan anggota lain | **DITOLAK** `23505` — jalur yang dipetakan `inviteMember` jadi pesan ramah |
+| `invited → inactive` | **DITOLAK** `invalid status transition` |
+| `invited → active` langsung | **DITOLAK** — hanya lewat RPC `activate_my_membership` |
+| `admin.deleteUser` | Baris membership hilang ikut cascade |
+
+Dua baris pertama sekaligus **menutup celah verifikasi yang sebelumnya saya
+laporkan**: penanganan username duplikat akhirnya benar-benar dieksekusi, bukan
+sekadar kode.
+
+### Fase 5 (selesai) — Jadwal, event, tugas
+- Modul `schedule`, `events`, `tasks`: masing-masing punya `schemas.ts`
+  (validasi + konversi waktu), `queries.ts`, `actions.ts`, dan komponen form.
+- `/schedule` menggabungkan `schedules`, `events` mendatang, dan tenggat tugas
+  aktif secara read-only (V-08), dikelompokkan per hari menurut timezone kelas.
+  Tiap entri punya label tipe + ikon, label zona waktu, dan tautan ke halaman
+  asalnya; deskripsi/tautan jadwal dibuka lewat `<details>` native karena
+  jadwal tidak punya halaman detail. Tautan "Ubah" hanya untuk `schedule.manage`.
+- `/schedule/new` dan `/schedule/[id]/edit` di-gate `schedule.manage`.
+- `/events`: filter `?when=upcoming|past` (upcoming memakai `end_at >= now()`
+  sehingga event yang sedang berlangsung tetap tampil), `/events/[id]` dengan
+  `notFound()` seragam untuk baris tak terlihat, cover opsional di
+  `class-media/events` dengan urutan unggah → tulis baris → buang objek lama,
+  dan rollback bila penulisan baris gagal.
+- `/tasks`: filter `?status=active|completed|archived`; daftar aktif memuat
+  tugas lewat tenggat dengan badge "Lewat tenggat" dan "Segera berakhir"
+  (ikon + teks, bukan warna saja). `/tasks/[id]` menampilkan pembuat hanya bila
+  profilnya terlihat lewat `member_profile_v`. Status diubah lewat aksi
+  `setTaskStatus`; aktivitas `completed` dicatat **trigger DB**, bukan ditulis
+  aplikasi (supaya tidak dobel).
+- `isValidLocalInput` baru di `lib/time`: uji bolak-balik konversi untuk menolak
+  waktu dinding yang tidak ada (mis. `2026-02-30T08:00`, jam `25:00`) yang akan
+  di-roll `TZDate` menjadi waktu lain. Dipakai schema jadwal, event, dan tugas.
+- `formatTimeRange` baru untuk rentang jam tanpa nama hari di daftar yang sudah
+  dikelompokkan per hari.
+
+### Verifikasi Fase 5 (5 Oktober 2026)
+
+Dijalankan dengan **sesi Ketua sungguhan** (dibuat lewat `generateLink` +
+`verifyOtp`, tanpa menyentuh kata sandi), memakai payload yang sama persis
+dengan actions:
+
+| Uji | Hasil |
+|---|---|
+| `insert` schedule/event/task (payload aksi) | OK, 3 baris |
+| schedule `end_at < start_at` | **DITOLAK** `23514` |
+| update 1 baris | OK; update yang tidak cocok baris → 0 baris (gagal) |
+| task `active → completed` | OK; trigger mencatat 1 aktivitas `completed` |
+| trigger mencatat aktivitas `created` | 3 baris untuk 3 entitas |
+| Anonim `insert` schedule | **DITOLAK** `42501` |
+| `/schedule`, `/schedule/new`, `/events`, `/events/new`, `/tasks`, `/tasks/new` sebagai Ketua | 200 |
+| `/schedule` dengan data nyata | Judul, label tipe, `08.00–09.40 WIB`, deskripsi (disclosure), dan tautan event/tugas tampil |
+
+Semua baris uji dihapus kembali beserta baris `class_activity` yang dibuat
+trigger, jadi tidak ada data karangan yang tertinggal di database.
+
+Yang **belum** diuji untuk Fase 5: menekan tombol form (Server Action lewat
+UI) belum dieksekusi end-to-end; yang terbukti adalah render halaman, validasi
+Zod (unit test), dan jalur database dengan payload yang sama.
+
 ### Fase 3 (selesai) — Identitas, tautan, tema, visibilitas, gambar
 - `src/features/class/schemas.ts`: validasi Zod yang menyalin CHECK constraint
   DB. `timezone` sengaja hanya 3 nilai (`Asia/Jakarta`/`Makassar`/`Jayapura`)
@@ -103,8 +234,6 @@ mengatakannya), dan tiga lapis sisanya menutup celah itu:
 
 Jadi menulis langsung lewat service role tetap bisa memasukkan palet tak
 terbaca, tetapi tidak akan pernah sampai ke layar.
-
-Belum di Fase 3: unggah logo/cover.
 
 ### Catatan arsitektur: logika visibilitas pindah ke registry
 
@@ -175,8 +304,8 @@ dan hero tipografi tanpa gradien sebagai satu elemen dominan per layar.
 |---|---|
 | `npm run lint` | Lulus, 0 error |
 | `npm run typecheck` | Lulus, 0 error |
-| `npm test` | **93 lulus / 93** (7 file) |
-| `npm run build` | Lulus, 4 route |
+| `npm test` | **136 lulus / 136** (10 file) |
+| `npm run build` | Lulus, 26 route |
 | `npm run check:tokens` | Lulus |
 | `npm run check:boundaries` | Lulus |
 | `GET /` | 200 |
@@ -195,6 +324,12 @@ Diverifikasi langsung pada hasil render (bukan hanya exit code):
 - `lang="id"`.
 - Font Fraunces + Source Sans 3 di-host sendiri dan serving (HTTP 200).
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`.
+- Shell `(app)` hadir di `/class`, `/members`, dan `/settings/**` setelah
+  perbaikan route group: HTML memuat skip link dan `id="main"`.
+- Anonim di `/members` diarahkan ke `/login?next=%2Fmembers` dan
+  `/settings/class` ke `/login?next=%2Fsettings` (307).
+- Dev server kembali 200 di semua route setelah scan Tailwind dan build error
+  diperbaiki.
 
 ### Empat bug nyata yang ditemukan oleh test
 
@@ -431,12 +566,11 @@ Sesuai §26.4 dan urutan fase §20, modul berikut **belum ada** dan bukan
 disembunyikan:
 
 - Fase 3: **selesai.**
-- Fase 4: anggota, profil, portofolio, social, `/settings/profile`,
-  `/settings/account`, `/settings/members`.
-- Fase 5: jadwal, event, tugas beserta form dan detailnya.
-- `/api/health`.
+- Fase 4: **selesai.**
+- Fase 5: **selesai.**
+- Fase 7: audit a11y & responsif, e2e Playwright, `/api/health`, runbook rilis.
 - `scripts/seed-fixtures.ts`.
-- Tes pgTAP, Playwright e2e.
+- Tes pgTAP (butuh Docker) dan Playwright e2e.
 
 ---
 
