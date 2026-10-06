@@ -3,6 +3,10 @@ import 'server-only';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { DUE_SOON_HOURS } from '@/lib/time/domain';
+import { nextOccurrence } from '@/lib/time';
+import { semesterFor } from '@/lib/semester';
+import { getSchedulesBySemester } from '@/features/schedule/queries';
+import { SCHEDULE_TYPE_LABEL } from '@/features/schedule/schemas';
 import type {
   ActivityTrendRow,
   HomeOverview,
@@ -25,10 +29,12 @@ export type UpcomingEntry =
 /**
  * Jadwal, event, dan tugas mendatang digabung di server lalu diurut waktu.
  *
- * `end_at >= now()` dipakai untuk upcoming, jadi kegiatan yang SEDANG berjalan
- * masih tampil (§19). Deadline tugas memakai `deadline` sebagai waktu.
+ * Jadwal kini berulang mingguan (hari + jam), jadi "waktu"-nya bukan kolom,
+ * melainkan hasil hitungan `nextOccurrence` untuk semester yang sedang berjalan;
+ * kegiatan yang SEDANG berjalan tetap tampil (§19). Deadline tugas memakai
+ * `deadline` sebagai waktu, event memakai `end_at >= now()`.
  */
-export const getUpcoming = cache(async (): Promise<UpcomingEntry[]> => {
+export const getUpcoming = cache(async (timezone: string): Promise<UpcomingEntry[]> => {
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
 
@@ -36,12 +42,7 @@ export const getUpcoming = cache(async (): Promise<UpcomingEntry[]> => {
   // jadi 5 baris dari tiap sumber sudah cukup untuk mengisi 5 item itu. Mengambil
   // 20 per sumber hanya membuang 15 baris yang tidak akan pernah dirender.
   const [schedules, events, tasks] = await Promise.all([
-    supabase
-      .from('schedules')
-      .select('title, start_at, end_at, location, type')
-      .gte('end_at', nowIso)
-      .order('start_at', { ascending: true })
-      .limit(HOME_UPCOMING_LIMIT),
+    getSchedulesBySemester(semesterFor(new Date())),
     supabase
       .from('events')
       .select('id, title, start_at, end_at, location')
@@ -61,12 +62,16 @@ export const getUpcoming = cache(async (): Promise<UpcomingEntry[]> => {
   // lebih baik daripada error yang membuat semua section hilang.
   const entries: UpcomingEntry[] = [];
 
-  for (const s of schedules.data ?? []) {
+  for (const s of schedules) {
+    // Tanggal nyatanya baru ada saat dihitung dari hari + jam; `null` berarti
+    // barisnya tidak masuk akal dan dilewati, bukan ditebak.
+    const next = nextOccurrence(s.day_of_week, s.start_time, s.end_time, timezone);
+    if (!next) continue;
     entries.push({
       kind: 'schedule',
-      at: s.start_at,
+      at: next.at,
       title: s.title,
-      meta: s.location ?? (s.type === 'class' ? 'Jadwal kuliah' : 'Kegiatan'),
+      meta: s.location ?? SCHEDULE_TYPE_LABEL[s.type],
       // Baris jadwal tidak punya halaman detail terpisah; tautan edit hanya
       // untuk pengelola dan ditangani di halaman /schedule (§10).
       href: null,

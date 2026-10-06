@@ -2,7 +2,7 @@
 //
 // CATATAN PENTING: file ini SEHARUSNYA hasil `supabase gen types typescript`.
 // Di lingkungan ini CLI tidak dapat menjangkau proyek (butuh access token /
-// Docker), sehingga file ini ditulis manual dari migration 0001-0009 dan harus
+// Docker), sehingga file ini ditulis manual dari migration 0001-0010 dan harus
 // di-regenerate sebelum deploy:
 //     pnpm db:types
 // Lihat docs/STATUS.md.
@@ -172,7 +172,10 @@ export type MemberProfileSummary = Pick<
   | 'joined_at'
 >;
 
-export type ScheduleSummary = Pick<Schedule, 'id' | 'title' | 'start_at' | 'end_at' | 'location' | 'type'>;
+export type ScheduleSummary = Pick<
+  Schedule,
+  'id' | 'title' | 'day_of_week' | 'start_time' | 'end_time' | 'location' | 'type'
+>;
 export type EventSummary = Pick<Event, 'id' | 'title' | 'start_at' | 'end_at' | 'location'>;
 export type TaskSummary = Pick<Task, 'id' | 'title' | 'deadline' | 'target'>;
 
@@ -181,8 +184,13 @@ export type Schedule = {
   class_id: string;
   title: string;
   description: string | null;
-  start_at: string;
-  end_at: string;
+  /** 1 = Senin … 7 = Minggu (isodow), mengikuti Postgres. */
+  day_of_week: number;
+  /** Jam dinding zona kelas, bentuk "17:30:00"; jadwal berulang mingguan. */
+  start_time: string;
+  end_time: string;
+  /** "2026/2027 Ganjil" — jadwal semester lama tetap tersimpan. */
+  semester: string;
   location: string | null;
   type: ScheduleType;
   url: string | null;

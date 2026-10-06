@@ -35,7 +35,7 @@ export async function UpcomingSlot({
   timezone: string;
   show: { schedule: boolean; tasks: boolean; events: boolean };
 }) {
-  const [entries, viewer] = await Promise.all([getUpcoming(), getViewer()]);
+  const [entries, viewer] = await Promise.all([getUpcoming(timezone), getViewer()]);
 
   return (
     <div className="flex flex-col gap-8">

@@ -7,8 +7,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getViewer, requirePermission } from '@/lib/visibility/server';
 import { fail, forbidden, type ActionError, type FormState } from '@/lib/result';
 import { mapDbError } from '@/lib/errors';
-import { getClassIdentity } from '@/features/class/queries';
-import { DEFAULT_TIMEZONE } from '@/lib/time';
 import { buildScheduleSchema } from './schemas';
 
 /** FormData mungkin `null` (field absent) atau `File`; keduanya bukan string. */
@@ -21,8 +19,10 @@ function readForm(fd: FormData): Record<string, string> {
   return {
     title: str(fd, 'title'),
     description: str(fd, 'description'),
-    start_at: str(fd, 'start_at'),
-    end_at: str(fd, 'end_at'),
+    day_of_week: str(fd, 'day_of_week'),
+    start_time: str(fd, 'start_time'),
+    end_time: str(fd, 'end_time'),
+    semester: str(fd, 'semester'),
     location: str(fd, 'location'),
     type: str(fd, 'type') || 'class',
     url: str(fd, 'url'),
@@ -40,17 +40,16 @@ function fieldErrorFrom(error: z.ZodError): Record<string, string[]> {
 }
 
 /**
- * Konteks penulis jadwal: `class_id` dari sesi terverifikasi, timezone kelas
- * untuk konversi `datetime-local`. Dua-duanya tidak pernah dari form (§9.3).
+ * Konteks penulis jadwal: `class_id` dari sesi terverifikasi, tidak pernah dari
+ * form (§9.3). Zona waktu tidak dibutuhkan lagi — jam jadwal adalah jam dinding
+ * dan zona kelas hanya dipakai saat menampilkan.
  */
-async function writerContext(): Promise<
-  { classId: string; timezone: string } | { error: ActionError }
-> {
-  const [viewer, identity] = await Promise.all([getViewer(), getClassIdentity()]);
+async function writerContext(): Promise<{ classId: string } | { error: ActionError }> {
+  const viewer = await getViewer();
   if (!viewer.classId) {
     return { error: { code: 'unknown', message: 'Kelas tidak ditemukan. Muat ulang halaman.' } };
   }
-  return { classId: viewer.classId, timezone: identity?.timezone ?? DEFAULT_TIMEZONE };
+  return { classId: viewer.classId };
 }
 
 function mappedFailure(
@@ -74,7 +73,7 @@ export async function createSchedule(_prev: FormState, fd: FormData): Promise<Fo
   if ('error' in context) return fail(context.error);
 
   const values = readForm(fd);
-  const parsed = buildScheduleSchema(context.timezone).safeParse(values);
+  const parsed = buildScheduleSchema().safeParse(values);
   if (!parsed.success) {
     return fail(
       {
@@ -93,8 +92,10 @@ export async function createSchedule(_prev: FormState, fd: FormData): Promise<Fo
       class_id: context.classId,
       title: parsed.data.title,
       description: parsed.data.description,
-      start_at: parsed.data.start_at,
-      end_at: parsed.data.end_at,
+      day_of_week: parsed.data.day_of_week,
+      start_time: parsed.data.start_time,
+      end_time: parsed.data.end_time,
+      semester: parsed.data.semester,
       location: parsed.data.location,
       type: parsed.data.type,
       url: parsed.data.url,
@@ -105,9 +106,11 @@ export async function createSchedule(_prev: FormState, fd: FormData): Promise<Fo
     return mappedFailure(error, 'create_schedule', values);
   }
 
-  // Jadwal muncul di /schedule dan daftar upcoming Home.
+  // Jadwal muncul di /schedule dan daftar upcoming Home. Semester yang baru
+  // dibuat langsung dibuka supaya pengguna melihat hasilnya, bukan semester
+  // lain yang kebetulan tersimpan lebih dulu.
   revalidatePath('/', 'layout');
-  redirect('/schedule');
+  redirect(`/schedule?semester=${encodeURIComponent(parsed.data.semester)}`);
 }
 
 export async function updateSchedule(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -123,7 +126,7 @@ export async function updateSchedule(_prev: FormState, fd: FormData): Promise<Fo
   if ('error' in context) return fail(context.error);
 
   const values = readForm(fd);
-  const parsed = buildScheduleSchema(context.timezone).safeParse(values);
+  const parsed = buildScheduleSchema().safeParse(values);
   if (!parsed.success) {
     return fail(
       {
@@ -143,8 +146,10 @@ export async function updateSchedule(_prev: FormState, fd: FormData): Promise<Fo
     .update({
       title: parsed.data.title,
       description: parsed.data.description,
-      start_at: parsed.data.start_at,
-      end_at: parsed.data.end_at,
+      day_of_week: parsed.data.day_of_week,
+      start_time: parsed.data.start_time,
+      end_time: parsed.data.end_time,
+      semester: parsed.data.semester,
       location: parsed.data.location,
       type: parsed.data.type,
       url: parsed.data.url,
@@ -157,7 +162,7 @@ export async function updateSchedule(_prev: FormState, fd: FormData): Promise<Fo
   }
 
   revalidatePath('/', 'layout');
-  redirect('/schedule');
+  redirect(`/schedule?semester=${encodeURIComponent(parsed.data.semester)}`);
 }
 
 export async function deleteSchedule(_prev: FormState, fd: FormData): Promise<FormState> {

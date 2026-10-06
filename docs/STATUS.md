@@ -701,6 +701,83 @@ yang sekarang ditunjukkan ringkasan sebelum menyimpan.
 
 ---
 
+## Jadwal mingguan + semester (6 Oktober 2026)
+
+Permintaan Knotus: "jadwal itu merujuk ke jadwal kelas, itu dipisahkan dari
+events/kegiatan… cukup input jam-menit dan hari, tidak usah d/m/y, karena jadwal
+kuliah sifatnya repetitif mingguan… Tambahkan juga opsi semester, saya ingin
+jadwal semester sebelumnya tetap disimpan, dan di halaman penampil jadwal nantinya
+ada dropdown untuk pilih semester, dan pilih hari, atau tampilkan seluruh jadwal
+semester ini."
+
+### Model data
+
+Migration `20261006120000_schedule_semester.sql` (diterapkan lewat CLI:
+`migration list` → `db push --dry-run` → `db push`):
+
+| Sebelum | Sesudah |
+|---|---|
+| `start_at` / `end_at` timestamptz (satu pertemuan bertanggal) | `day_of_week` smallint 1–7 (isodow) + `start_time`/`end_time` `time` |
+| — | `semester` text, format `YYYY/YYYY (Ganjil\|Genap)` |
+| index `(class_id, start_at)` | index `(class_id, semester, day_of_week, start_time)` |
+
+Baris lama **tidak dibuang**: hari dan jam diturunkan dari `start_at`/`end_at`
+memakai zona waktu kelas, dan semesternya diisi semester yang berjalan saat
+migrasi — jadwal asli pengguna berakhir sebagai Selasa 17.30–19.00 WITA,
+"2026/2027 Ganjil". Setelah backfill, kolom bertanggal dihapus supaya tidak ada
+dua sumber kebenaran. CHECK baru: hari 1–7, `end_time > start_time`, dan format
+semester + tahun berurutan. Grant insert/update diperbarui karena grant tabel ini
+berbasis kolom (pola yang sama seperti `tasks.course`).
+
+### Yang berubah di aplikasi
+
+- `/schedule` sekarang hanya menampilkan **jadwal kuliah**; event dan tenggat
+  tugas tidak lagi digabung di sini karena keduanya sudah punya halaman sendiri.
+- Dua penyaring di atas daftar: **semester** dan **hari** ("Semua hari" =
+  seluruh jadwal semester itu). Pilihannya hidup di URL
+  (`?semester=…&day=…`), jadi bisa di-bookmark dan dibagikan (§8).
+- Default semester: nilai di URL → semester berjalan bila sudah punya jadwal →
+  semester terbaru yang punya jadwal. Kelas yang belum mengisi jadwal semester
+  ini tetap melihat jadwal terakhirnya, bukan halaman kosong.
+- Form: Judul · Jenis · Semester · Hari · Jam mulai · Jam selesai · Lokasi ·
+  Tautan · Deskripsi. Tidak ada lagi input tanggal; jamnya jam dinding zona
+  kelas, jadi tidak ada konversi UTC — zona hanya dipakai untuk label
+  WIB/WITA/WIT saat menampilkan.
+- Daftar semester di form dan halaman = semester yang ada di database digabung
+  semester berjalan + 3 sebelumnya, jadi semester lama selalu bisa dipilih kembali.
+  Setelah menyimpan, pengguna diarahkan ke semester yang baru dibuat.
+- Home: "Jadwal" menghitung **kemunculan berikutnya** dari hari + jam
+  (`nextOccurrence`, helper baru di `lib/time`); kuliah yang sedang berjalan
+  tetap dihitung sebagai berikutnya. Hanya semester berjalan yang ikut.
+- Helper baru `src/lib/semester.ts` (`semesterFor`, `recentSemesters`,
+  `isSemester`, `sortSemestersDesc`). `dayKey` dan `formatTimeRange` dihapus
+  karena tidak ada lagi pemakainya, dan tesnya diganti tes untuk helper baru
+  (`nextOccurrence`, `formatWallTimeRange`, `semesterFor`).
+
+### Verifikasi
+
+- `lint`, `typecheck`, `test` (12 file, **156 tes**, +13), `check:tokens`,
+  `check:boundaries`, `build`: semua keluar 0.
+- 20 cek Chrome, semua lulus: baris hasil migrasi tampil sebagai Selasa
+  17.30–19.00 WITA; jadwal baru (Kamis 10.00–11.40) tersimpan lalu tampil di
+  kelompok Kamis; `end_time` sebelum `start_time` ditolak server (tetap di form,
+  tidak ada baris baru); jadwal semester lama (2025/2026 Genap) tersimpan dan
+  bisa dibuka; semester lama tidak bocor ke tampilan semester ini; filter hari
+  menyaring dua arah; Home menampilkan "Sel, 6 Okt · 17.30 WITA"; anonim
+  diarahkan ke `/login?next=%2Fschedule`.
+- Baris uji dihapus setelah verifikasi; yang tersisa hanya jadwal asli pengguna.
+
+### Yang tidak dilakukan / menunggu keputusan
+
+- `blueprint.md` **tidak diubah** walau §19 masih mendeskripsikan jadwal
+  bertanggal; pola yang sama seperti perubahan sebelumnya — dicatat di sini
+  sebagai penyimpangan yang disengaja sampai Knotus memutuskan naskah blueprint.
+- Kolom `type` (`class`/`activity`) dipertahankan apa adanya. Pemisahan yang
+  diminta adalah pemisahan halaman (jadwal vs event), bukan penghapusan jenis.
+- Halaman detail jadwal tidak dibuat; "Ubah" tetap langsung dari baris daftar.
+
+---
+
 ## Desain Stitch vs blueprint
 
 Ekspor Stitch tersedia di `stitch_ui_system/` (16 layar + `DESIGN.md` sistem

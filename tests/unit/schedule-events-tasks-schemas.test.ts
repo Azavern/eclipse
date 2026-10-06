@@ -7,72 +7,78 @@ import {
   TASK_TARGETS,
   toTaskStatus,
 } from '@/features/tasks/schemas';
-import { formatTimeRange, isValidLocalInput } from '@/lib/time';
+import { formatWallTimeRange, isValidLocalInput } from '@/lib/time';
 
 const TZ = 'Asia/Jakarta';
 
 const validSchedule = {
   title: 'Kuliah Algoritma',
   description: 'Ruang 3.2',
-  start_at: '2026-10-05T08:00',
-  end_at: '2026-10-05T09:40',
+  day_of_week: '1',
+  start_time: '08:00',
+  end_time: '09:40',
+  semester: '2026/2027 Ganjil',
   location: 'Ruang 3.2',
   type: 'class',
   url: null,
 };
 
 describe('buildScheduleSchema', () => {
-  it('mengubah waktu dinding zona kelas menjadi UTC', () => {
-    // 08.00 WIB = 01.00 UTC
-    const parsed = buildScheduleSchema(TZ).safeParse(validSchedule);
+  it('menerima jadwal mingguan: hari + jam + semester, tanpa tanggal', () => {
+    const parsed = buildScheduleSchema().safeParse(validSchedule);
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    expect(parsed.data.start_at).toBe('2026-10-05T01:00:00.000Z');
-    expect(parsed.data.end_at).toBe('2026-10-05T02:40:00.000Z');
+    expect(parsed.data.day_of_week).toBe(1);
+    expect(parsed.data.start_time).toBe('08:00');
+    expect(parsed.data.semester).toBe('2026/2027 Ganjil');
   });
 
-  it('menolak waktu selesai sebelum waktu mulai', () => {
-    const parsed = buildScheduleSchema(TZ).safeParse({
-      ...validSchedule,
-      start_at: '2026-10-05T10:00',
-      end_at: '2026-10-05T09:00',
-    });
-    expect(parsed.success).toBe(false);
-    if (parsed.success) return;
-    expect(parsed.error.issues.some((i) => i.path[0] === 'end_at')).toBe(true);
+  it('menolak jam selesai yang mendahului atau sama dengan jam mulai', () => {
+    for (const end_time of ['07:00', '08:00']) {
+      const parsed = buildScheduleSchema().safeParse({ ...validSchedule, end_time });
+      expect(parsed.success, end_time).toBe(false);
+      if (parsed.success) continue;
+      expect(parsed.error.issues.some((i) => i.path[0] === 'end_time')).toBe(true);
+    }
   });
 
-  it('menolak tanggal yang tidak ada di kalender, bukan cuma bentuknya', () => {
-    const parsed = buildScheduleSchema(TZ).safeParse({
-      ...validSchedule,
-      start_at: '2026-02-30T08:00',
-    });
-    expect(parsed.success).toBe(false);
+  it('menolak hari di luar 1–7 dan hari yang bukan angka', () => {
+    for (const day_of_week of ['0', '8', 'senin', '', '1.5']) {
+      expect(
+        buildScheduleSchema().safeParse({ ...validSchedule, day_of_week }).success,
+        day_of_week,
+      ).toBe(false);
+    }
   });
 
-  it('menolak jam di luar rentang', () => {
-    expect(
-      buildScheduleSchema(TZ).safeParse({ ...validSchedule, start_at: '2026-10-05T25:00' }).success,
-    ).toBe(false);
-    expect(
-      buildScheduleSchema(TZ).safeParse({ ...validSchedule, start_at: '2026-10-05T08:60' }).success,
-    ).toBe(false);
+  it('menolak jam yang bukan bentuk 24 jam dua digit', () => {
+    for (const start_time of ['25:00', '8:00', '08:60', 'pagi']) {
+      expect(buildScheduleSchema().safeParse({ ...validSchedule, start_time }).success, start_time).toBe(
+        false,
+      );
+    }
+  });
+
+  it('menolak semester di luar format baku', () => {
+    for (const semester of ['Ganjil 2026/2027', '2026/2028 Ganjil', '2026/2027 ganjil', '']) {
+      expect(buildScheduleSchema().safeParse({ ...validSchedule, semester }).success, semester).toBe(
+        false,
+      );
+    }
   });
 
   it('menolak tautan http dan judul kosong', () => {
-    expect(
-      buildScheduleSchema(TZ).safeParse({ ...validSchedule, url: 'http://contoh.id' }).success,
-    ).toBe(false);
-    expect(buildScheduleSchema(TZ).safeParse({ ...validSchedule, title: '   ' }).success).toBe(
+    expect(buildScheduleSchema().safeParse({ ...validSchedule, url: 'http://contoh.id' }).success).toBe(
       false,
     );
+    expect(buildScheduleSchema().safeParse({ ...validSchedule, title: '   ' }).success).toBe(false);
   });
 
   it('menerima seluruh tipe jadwal', () => {
     for (const type of SCHEDULE_TYPES) {
-      expect(buildScheduleSchema(TZ).safeParse({ ...validSchedule, type }).success, type).toBe(true);
+      expect(buildScheduleSchema().safeParse({ ...validSchedule, type }).success, type).toBe(true);
     }
-    expect(buildScheduleSchema(TZ).safeParse({ ...validSchedule, type: 'lain' }).success).toBe(false);
+    expect(buildScheduleSchema().safeParse({ ...validSchedule, type: 'lain' }).success).toBe(false);
   });
 });
 
@@ -188,11 +194,9 @@ describe('isValidLocalInput', () => {
   });
 });
 
-describe('formatTimeRange', () => {
-  it('menampilkan rentang jam dengan label zona', () => {
-    expect(formatTimeRange('2026-10-05T01:00:00.000Z', '2026-10-05T02:40:00.000Z', TZ)).toBe(
-      '08.00–09.40 WIB',
-    );
+describe('formatWallTimeRange', () => {
+  it('menampilkan rentang jam dinding dengan label zona', () => {
+    expect(formatWallTimeRange('17:30:00', '19:00:00', 'Asia/Makassar')).toBe('17.30–19.00 WITA');
   });
 });
 

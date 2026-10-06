@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { HTTPS_URL, optionalText, requiredText } from '@/lib/validation';
-import { isValidLocalInput, localInputToUtcIso } from '@/lib/time';
+import { isSemester } from '@/lib/semester';
 
 /**
  * Tipe jadwal — salinan dari enum `public.schedule_type`.
@@ -15,29 +15,66 @@ export const SCHEDULE_TYPE_LABEL: Record<ScheduleTypeName, string> = {
 };
 
 /**
- * Skema jadwal. Dibuat sebagai factory karena `datetime-local` adalah waktu
- * dinding tanpa zona: konversinya baru bisa dilakukan setelah tahu timezone
- * kelas (§14.4).
+ * Hari dalam minggu, mengikuti `isodow` Postgres: 1 = Senin … 7 = Minggu.
+ * Nilainya dipakai apa adanya sebagai `day_of_week`, jadi hari tidak pernah
+ * masuk sebagai teks bebas dan urutannya sama di form, halaman, dan database.
+ */
+export const WEEKDAY_LABEL = {
+  1: 'Senin',
+  2: 'Selasa',
+  3: 'Rabu',
+  4: 'Kamis',
+  5: 'Jumat',
+  6: 'Sabtu',
+  7: 'Minggu',
+} as const;
+
+export type WeekdayValue = keyof typeof WEEKDAY_LABEL;
+
+export const WEEKDAYS = ([1, 2, 3, 4, 5, 6, 7] as const).map((value) => ({
+  value,
+  label: WEEKDAY_LABEL[value],
+}));
+
+/** "08:00" — 24 jam, dua digit, sama dengan bentuk kolom `time`. */
+export const TIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+function toMinutes(time: string): number {
+  const [hour, minute] = time.split(':');
+  return Number(hour) * 60 + Number(minute);
+}
+
+/**
+ * Skema jadwal mingguan: hari + jam mulai/selesai + semester, tanpa tanggal.
+ *
+ * Kuliah berulang mingguan sepanjang semester, jadi satu baris cukup dibuat
+ * sekali dan dipakai terus. Tidak ada konversi waktu di sini — jamnya jam
+ * dinding zona kelas, dan zona itu hanya dipakai saat menampilkan (label WIB/
+ * WITA/WIT), bukan saat menyimpan.
  *
  * Semua batas panjang disalin dari CHECK constraint `schedules`: `title` 1–120,
- * `description` ≤ 1000, `location` ≤ 120, `url` https ≤ 2048, dan
- * `end_at >= start_at` (diperiksa SETELAH konversi, seperti pesan blueprint).
+ * `description` ≤ 1000, `location` ≤ 120, `url` https ≤ 2048, hari 1–7,
+ * `end_time > start_time`, dan format semester yang sama dengan
+ * `schedules_semester_check`.
  */
-export function buildScheduleSchema(timezone: string) {
+export function buildScheduleSchema() {
   return z
     .object({
       title: requiredText(1, 120, 'Judul'),
       description: optionalText(1000, 'Deskripsi'),
-      start_at: z
+      day_of_week: z.string().trim().regex(/^[1-7]$/, 'Pilih hari dari daftar'),
+      start_time: z
         .string()
         .trim()
-        .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Waktu mulai harus berisi tanggal dan jam')
-        .refine((v) => isValidLocalInput(v, timezone), 'Waktu mulai tidak valid'),
-      end_at: z
+        .regex(TIME_PATTERN, 'Jam mulai harus dalam bentuk 08:00 (24 jam)'),
+      end_time: z
         .string()
         .trim()
-        .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Waktu selesai harus berisi tanggal dan jam')
-        .refine((v) => isValidLocalInput(v, timezone), 'Waktu selesai tidak valid'),
+        .regex(TIME_PATTERN, 'Jam selesai harus dalam bentuk 09:40 (24 jam)'),
+      semester: z
+        .string()
+        .trim()
+        .refine(isSemester, 'Semester harus seperti "2026/2027 Ganjil"'),
       location: optionalText(120, 'Lokasi'),
       type: z.enum(SCHEDULE_TYPES),
       url: optionalText(2048, 'Tautan').refine(
@@ -45,25 +82,11 @@ export function buildScheduleSchema(timezone: string) {
         'Tautan harus berupa URL https yang valid',
       ),
     })
-    .transform((v, ctx) => {
-      const start = localInputToUtcIso(v.start_at, timezone);
-      const end = localInputToUtcIso(v.end_at, timezone);
-      if (!start || !end) {
-        ctx.addIssue({ code: 'custom', path: ['start_at'], message: 'Waktu tidak valid' });
-        return z.NEVER;
-      }
-      // Setelah konversi, bukan sekadar membandingkan string: waktu dinding
-      // yang tampak berurutan pun bisa berbeda urutan setelah zona diterapkan.
-      if (new Date(end).getTime() < new Date(start).getTime()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['end_at'],
-          message: 'Waktu selesai tidak boleh sebelum waktu mulai',
-        });
-        return z.NEVER;
-      }
-      return { ...v, start_at: start, end_at: end };
-    });
+    .refine((v) => toMinutes(v.end_time) > toMinutes(v.start_time), {
+      path: ['end_time'],
+      message: 'Jam selesai harus setelah jam mulai',
+    })
+    .transform((v) => ({ ...v, day_of_week: Number(v.day_of_week) }));
 }
 
 export type ScheduleValues = z.output<ReturnType<typeof buildScheduleSchema>>;

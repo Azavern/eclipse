@@ -107,14 +107,25 @@ export function formatRange(startIso: string, endIso: string, timezone: string):
 }
 
 /**
- * "08.00–09.40 WIB" tanpa nama hari, untuk daftar yang sudah dikelompokkan
- * per hari sehingga label harinya tidak perlu diulang.
+ * "17.30–19.00 WITA" untuk jam DINDING zona kelas — dipakai jadwal mingguan
+ * yang menyimpan `time` tanpa tanggal, bukan instan UTC.
  */
-export function formatTimeRange(startIso: string, endIso: string, timezone: string): string {
-  const zone = toClassTimezone(timezone);
-  const start = format(new TZDate(new Date(startIso), zone), 'HH.mm', { locale: idLocale });
-  const end = format(new TZDate(new Date(endIso), zone), 'HH.mm', { locale: idLocale });
-  return `${start}–${end} ${zoneLabel(zone)}`;
+export function formatWallTimeRange(startTime: string, endTime: string, timezone: string): string {
+  return `${wallTimeLabel(startTime)}–${wallTimeLabel(endTime)} ${zoneLabel(toClassTimezone(timezone))}`;
+}
+
+/** "17.30 WITA" untuk satu jam dinding. */
+export function formatWallTime(time: string, timezone: string): string {
+  return `${wallTimeLabel(time)} ${zoneLabel(toClassTimezone(timezone))}`;
+}
+
+/**
+ * "17:30:00" (bentuk kolom `time` Postgres) -> "17.30". Nilai yang bukan jam
+ * dibiarkan apa adanya supaya tidak menampilkan angka yang salah.
+ */
+function wallTimeLabel(time: string): string {
+  const match = /^(\d{2}):(\d{2})/.exec(time.trim());
+  return match ? `${match[1]}.${match[2]}` : time;
 }
 
 /** "08.00 WIB" */
@@ -149,7 +160,62 @@ export function formatDateOnly(dateOnly: string): string {
   );
 }
 
-/** Key pengelompokan per hari pada jadwal, mis. "2026-10-05". */
-export function dayKey(iso: string, timezone: string): string {
-  return format(new TZDate(new Date(iso), toClassTimezone(timezone)), 'yyyy-MM-dd');
+/**
+ * Kemunculan berikutnya dari jadwal mingguan: hari (isodow 1–7, 1 = Senin)
+ * dan jam dinding zona kelas, dihitung dari `from`.
+ *
+ * Dipakai Home untuk "Jadwal" terdekat: jadwal berulang tidak punya tanggal,
+ * jadi tanggalnya baru dihitung saat ditampilkan. Kegiatan yang SEDANG
+ * berjalan tetap dihitung sebagai yang berikutnya (selama jam selesainya belum
+ * lewat) — perilaku yang sama dengan `end_at >= now()` sebelumnya.
+ *
+ * Mengembalikan instan UTC supaya bisa diurutkan dan diformat helper lain;
+ * `null` bila masukannya tidak masuk akal (ditolak, bukan ditebak).
+ */
+export function nextOccurrence(
+  dayOfWeek: number,
+  startTime: string,
+  endTime: string,
+  timezone: string,
+  from: Date = new Date(),
+): { at: string; until: string } | null {
+  const start = parseWallTime(startTime);
+  const end = parseWallTime(endTime);
+  if (!start || !end || !Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
+    return null;
+  }
+
+  const zone = toClassTimezone(timezone);
+  const base = new TZDate(from, zone);
+  const today = Number(format(base, 'i')); // 1 = Senin … 7 = Minggu
+
+  // Selisih hari ke depan (0 = hari ini). Komponennya dibaca dari TZDate, jadi
+  // "hari ini" berarti hari menurut zona kelas, bukan zona perangkat pembaca.
+  let offset = (dayOfWeek - today + 7) % 7;
+  const build = (plusDays: number, hour: number, minute: number) =>
+    new TZDate(base.getFullYear(), base.getMonth(), base.getDate() + plusDays, hour, minute, 0, 0, zone);
+
+  let startAt = build(offset, start.hour, start.minute);
+  let endAt = build(offset, end.hour, end.minute);
+
+  if (endAt.getTime() <= from.getTime()) {
+    offset += 7;
+    startAt = build(offset, start.hour, start.minute);
+    endAt = build(offset, end.hour, end.minute);
+  }
+
+  return {
+    at: new Date(startAt.getTime()).toISOString(),
+    until: new Date(endAt.getTime()).toISOString(),
+  };
+}
+
+/** "17:30" atau "17:30:00" -> jam dan menit; `null` bila bukan jam yang masuk akal. */
+function parseWallTime(value: string): { hour: number; minute: number } | null {
+  const match = /^(\d{2}):(\d{2})/.exec(value.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return { hour, minute };
 }

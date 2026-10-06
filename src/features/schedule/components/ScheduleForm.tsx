@@ -6,7 +6,7 @@ import {
   deleteSchedule,
   updateSchedule,
 } from '@/features/schedule/actions';
-import { SCHEDULE_TYPE_LABEL, SCHEDULE_TYPES } from '@/features/schedule/schemas';
+import { SCHEDULE_TYPE_LABEL, SCHEDULE_TYPES, WEEKDAYS } from '@/features/schedule/schemas';
 import { FormField } from '@/components/ui/FormField';
 import { Input, Select, Textarea } from '@/components/ui/Input';
 import { FormStatus } from '@/components/ui/FormStatus';
@@ -15,12 +15,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
 import type { FormState } from '@/lib/result';
 
-/** Nilai awal form; waktu sudah dikonversi ke waktu dinding zona kelas. */
+/** Nilai awal form; jam sudah dalam bentuk yang diterima `input type="time"`. */
 export type ScheduleDefaults = {
   title: string;
   description: string;
-  start_at: string;
-  end_at: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  semester: string;
   location: string;
   type: string;
   url: string;
@@ -29,8 +31,10 @@ export type ScheduleDefaults = {
 const EMPTY: ScheduleDefaults = {
   title: '',
   description: '',
-  start_at: '',
-  end_at: '',
+  day_of_week: '1',
+  start_time: '',
+  end_time: '',
+  semester: '',
   location: '',
   type: 'class',
   url: '',
@@ -41,6 +45,17 @@ function fieldErrors(state: FormState): Record<string, string[]> | undefined {
 }
 
 /**
+ * Semester yang bisa dipilih: semester yang sudah ada di database digabung
+ * dengan semester berjalan dan beberapa sebelumnya. Nilai yang sedang terpilih
+ * selalu ikut dimasukkan supaya echo Server Action tidak pernah menghasilkan
+ * select kosong.
+ */
+function semesterOptions(semesters: string[], value: string): string[] {
+  if (!value || semesters.includes(value)) return semesters;
+  return [value, ...semesters];
+}
+
+/**
  * Field yang sama dipakai form tambah dan form ubah supaya batas dan aturan
  * validasi tidak berbeda di antara keduanya.
  *
@@ -48,10 +63,12 @@ function fieldErrors(state: FormState): Record<string, string[]> | undefined {
  * server, supaya isian tidak hilang saat validasi gagal (§15.1).
  */
 function ScheduleFields({
+  semesters,
   defaults,
   values,
   errors,
 }: {
+  semesters: string[];
   defaults: ScheduleDefaults;
   values?: Record<string, string>;
   errors?: Record<string, string[]>;
@@ -94,34 +111,78 @@ function ScheduleFields({
       </FormField>
 
       <FormField
+        id="schedule-semester"
+        label="Semester"
+        hint="Jadwal semester lama tetap tersimpan dan bisa dibuka lagi dari halaman Jadwal."
+        error={first('semester')}
+        required
+      >
+        {(describedBy) => (
+          <Select
+            id="schedule-semester"
+            name="semester"
+            defaultValue={value('semester')}
+            describedBy={describedBy}
+            invalid={Boolean(first('semester'))}
+          >
+            {semesterOptions(semesters, value('semester')).map((semester) => (
+              <option key={semester} value={semester}>
+                {semester}
+              </option>
+            ))}
+          </Select>
+        )}
+      </FormField>
+
+      <FormField id="schedule-day" label="Hari" error={first('day_of_week')} required>
+        {(describedBy) => (
+          <Select
+            id="schedule-day"
+            name="day_of_week"
+            defaultValue={value('day_of_week')}
+            describedBy={describedBy}
+            invalid={Boolean(first('day_of_week'))}
+          >
+            {WEEKDAYS.map((day) => (
+              <option key={day.value} value={String(day.value)}>
+                {day.label}
+              </option>
+            ))}
+          </Select>
+        )}
+      </FormField>
+
+      <FormField
         id="schedule-start"
-        label="Mulai"
-        hint="Waktu di zona kelas, bukan zona perangkatmu."
-        error={first('start_at')}
+        label="Jam mulai"
+        hint="Waktu di zona kelas, bukan zona perangkatmu. Contoh: 08:00."
+        error={first('start_time')}
         required
       >
         {(describedBy) => (
           <Input
             id="schedule-start"
-            name="start_at"
-            type="datetime-local"
+            name="start_time"
+            type="time"
+            step={60}
             required
-            defaultValue={value('start_at')}
-            invalid={Boolean(first('start_at'))}
+            defaultValue={value('start_time')}
+            invalid={Boolean(first('start_time'))}
             describedBy={describedBy}
           />
         )}
       </FormField>
 
-      <FormField id="schedule-end" label="Selesai" error={first('end_at')} required>
+      <FormField id="schedule-end" label="Jam selesai" error={first('end_time')} required>
         {(describedBy) => (
           <Input
             id="schedule-end"
-            name="end_at"
-            type="datetime-local"
+            name="end_time"
+            type="time"
+            step={60}
             required
-            defaultValue={value('end_at')}
-            invalid={Boolean(first('end_at'))}
+            defaultValue={value('end_time')}
+            invalid={Boolean(first('end_time'))}
             describedBy={describedBy}
           />
         )}
@@ -177,15 +238,29 @@ function ScheduleFields({
   );
 }
 
-/** Form tambah jadwal. Setelah sukses aksi mengarahkan ke `/schedule`. */
-export function CreateScheduleForm() {
+/**
+ * Form tambah jadwal. Setelah sukses aksi mengarahkan ke `/schedule` untuk
+ * semester yang baru dibuat.
+ */
+export function CreateScheduleForm({
+  semesters,
+  defaultSemester,
+}: {
+  semesters: string[];
+  defaultSemester: string;
+}) {
   const [state, action] = useActionState(createSchedule, null);
   const values = state && !state.ok ? state.values : undefined;
 
   return (
     <form action={action} className="flex flex-col gap-5">
       <FormStatus state={state} successMessage="Jadwal tersimpan." />
-      <ScheduleFields defaults={EMPTY} values={values} errors={fieldErrors(state)} />
+      <ScheduleFields
+        semesters={semesters}
+        defaults={{ ...EMPTY, semester: defaultSemester }}
+        values={values}
+        errors={fieldErrors(state)}
+      />
       <SubmitButton pendingLabel="Menyimpan…">Simpan jadwal</SubmitButton>
     </form>
   );
@@ -194,10 +269,12 @@ export function CreateScheduleForm() {
 /** Form ubah jadwal + hapus. */
 export function EditScheduleForm({
   id,
+  semesters,
   defaults,
   title,
 }: {
   id: string;
+  semesters: string[];
   defaults: ScheduleDefaults;
   /** Judul baris untuk teks konfirmasi hapus. */
   title: string;
@@ -214,7 +291,12 @@ export function EditScheduleForm({
 
       <form action={action} className="flex flex-col gap-5">
         <input type="hidden" name="id" value={id} />
-        <ScheduleFields defaults={defaults} values={values} errors={fieldErrors(state)} />
+        <ScheduleFields
+          semesters={semesters}
+          defaults={defaults}
+          values={values}
+          errors={fieldErrors(state)}
+        />
 
         <div className="flex flex-wrap gap-2">
           <SubmitButton pendingLabel="Menyimpan…">Simpan jadwal</SubmitButton>

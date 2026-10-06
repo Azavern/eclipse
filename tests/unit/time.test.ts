@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   CLASS_TIMEZONES,
-  dayKey,
   formatDateOnly,
   formatDateTime,
   formatRange,
   formatTime,
+  formatWallTime,
+  formatWallTimeRange,
   isClassTimezone,
   localInputToUtcIso,
+  nextOccurrence,
   toClassTimezone,
   utcIsoToLocalInput,
   zoneLabel,
@@ -81,11 +83,11 @@ describe('format waktu pada timezone kelas', () => {
     expect(formatDateTime(iso, 'Asia/Jakarta')).toBe('5 Okt 2026, 08.00 WIB');
   });
 
-  it('dayKey memakai tanggal menurut timezone kelas', () => {
-    // 23.00 UTC masih 5 Okt di WIB, tapi sudah 6 Okt di WIT.
-    const late = '2026-10-05T23:00:00.000Z';
-    expect(dayKey(late, 'Asia/Jakarta')).toBe('2026-10-06');
-    expect(dayKey(late, 'Asia/Jayapura')).toBe('2026-10-06');
+  it('formatWallTime menampilkan jam dinding, bukan instan UTC', () => {
+    expect(formatWallTime('08:00', 'Asia/Jakarta')).toBe('08.00 WIB');
+    // Bentuk kolom `time` dari database ikut diterima.
+    expect(formatWallTime('08:00:00', 'Asia/Jakarta')).toBe('08.00 WIB');
+    expect(formatWallTimeRange('17:30:00', '19:00:00', 'Asia/Makassar')).toBe('17.30–19.00 WITA');
   });
 
   it('timezone tak dikenal jatuh ke default, bukan melempar error', () => {
@@ -93,6 +95,46 @@ describe('format waktu pada timezone kelas', () => {
     expect(zoneLabel('Europe/Amsterdam')).toBe('Europe/Amsterdam');
     expect(isClassTimezone('Asia/Jakarta')).toBe(true);
     expect(isClassTimezone('Europe/Amsterdam')).toBe(false);
+  });
+});
+
+describe('nextOccurrence', () => {
+  it('memakai hari yang sama bila jamnya belum lewat', () => {
+    // Selasa 6 Okt 2026, 06.00 WITA — kuliah Selasa 08.00–09.40 WITA belum mulai.
+    const from = new Date('2026-10-05T22:00:00.000Z');
+    const next = nextOccurrence(2, '08:00', '09:40', 'Asia/Makassar', from);
+    expect(next?.at).toBe('2026-10-06T00:00:00.000Z');
+    expect(next?.until).toBe('2026-10-06T01:40:00.000Z');
+  });
+
+  it('melompat ke minggu berikutnya bila jamnya sudah lewat', () => {
+    // Selasa 11.00 WITA — kuliah pagi sudah selesai.
+    const from = new Date('2026-10-06T03:00:00.000Z');
+    const next = nextOccurrence(2, '08:00', '09:40', 'Asia/Makassar', from);
+    expect(next?.at).toBe('2026-10-13T00:00:00.000Z');
+  });
+
+  it('kuliah yang sedang berjalan tetap dihitung sebagai berikutnya', () => {
+    // Selasa 08.30 WITA, kuliah 08.00–09.40 masih berlangsung.
+    const from = new Date('2026-10-06T00:30:00.000Z');
+    const next = nextOccurrence(2, '08:00', '09:40', 'Asia/Makassar', from);
+    expect(next?.at).toBe('2026-10-06T00:00:00.000Z');
+  });
+
+  it('menghitung hari menurut zona kelas, bukan zona mesin', () => {
+    // 2026-10-05 18.00 UTC = Selasa 02.00 WITA; kuliah Selasa 01.00–02.00
+    // berakhir tepat pada saat itu, jadi berikutnya Selasa pekan depan.
+    const from = new Date('2026-10-05T18:00:00.000Z');
+    const next = nextOccurrence(2, '01:00', '02:00', 'Asia/Makassar', from);
+    // Selasa 13 Okt 01.00 WITA = Senin 12 Okt 17.00 UTC.
+    expect(next?.at).toBe('2026-10-12T17:00:00.000Z');
+  });
+
+  it('menolak masukan yang tidak masuk akal, bukan menebaknya', () => {
+    expect(nextOccurrence(0, '08:00', '09:00', 'Asia/Jakarta')).toBeNull();
+    expect(nextOccurrence(8, '08:00', '09:00', 'Asia/Jakarta')).toBeNull();
+    expect(nextOccurrence(2, '25:00', '09:00', 'Asia/Jakarta')).toBeNull();
+    expect(nextOccurrence(2, '08:00', 'bukan jam', 'Asia/Jakarta')).toBeNull();
   });
 });
 

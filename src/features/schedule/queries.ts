@@ -2,13 +2,33 @@ import 'server-only';
 
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { sortSemestersDesc } from '@/lib/semester';
 import type { Schedule } from '@/lib/supabase/database.types';
 
-/** Kolom yang dibutuhkan form edit; bukan seluruh baris. */
-export type ScheduleEditRow = Pick<
+/**
+ * Kolom yang dibutuhkan daftar dan form edit. Jamnya `time` tanpa tanggal —
+ * jadwal berulang mingguan, jadi tidak ada instan UTC yang dihitung di sini;
+ * kemunculan berikutnya baru dihitung `nextOccurrence` saat ditampilkan.
+ */
+export type ScheduleRow = Pick<
   Schedule,
-  'id' | 'title' | 'description' | 'start_at' | 'end_at' | 'location' | 'type' | 'url'
+  | 'id'
+  | 'title'
+  | 'description'
+  | 'day_of_week'
+  | 'start_time'
+  | 'end_time'
+  | 'semester'
+  | 'location'
+  | 'type'
+  | 'url'
 >;
+
+const COLUMNS =
+  'id, title, description, day_of_week, start_time, end_time, semester, location, type, url';
+
+/** Maksimal baris yang dibaca untuk satu semester (§12). */
+export const SCHEDULE_LIMIT = 100;
 
 /**
  * Satu baris jadwal untuk halaman edit.
@@ -17,11 +37,11 @@ export type ScheduleEditRow = Pick<
  * `schedule.manage`; halaman edit sudah di-gate permission, jadi baris ini
  * hanya terpakai oleh pengelola.
  */
-export const getScheduleById = cache(async (id: string): Promise<ScheduleEditRow | null> => {
+export const getScheduleById = cache(async (id: string): Promise<ScheduleRow | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('schedules')
-    .select('id, title, description, start_at, end_at, location, type, url')
+    .select(COLUMNS)
     .eq('id', id)
     .maybeSingle();
 
@@ -33,103 +53,45 @@ export const getScheduleById = cache(async (id: string): Promise<ScheduleEditRow
 });
 
 /**
- * Satu entri daftar jadwal gabungan (§19): jadwal, event, dan tenggat tugas
- * aktif. `until` adalah akhir kegiatan; untuk tugas sama dengan deadline.
- * `href` diisi untuk entri yang punya halaman asal; jadwal tidak punya halaman
- * detail, tautan edit-nya ditentukan halaman karena bergantung permission.
+ * Jadwal satu semester, urut hari lalu jam — urutan yang sama dengan tampilan.
+ * RLS menyaring baris yang tidak boleh dilihat viewer, jadi tidak ada
+ * penyaringan kedua di sini.
  */
-export type ScheduleEntry = {
-  kind: 'class' | 'activity' | 'event' | 'task';
-  id: string;
-  title: string;
-  /** Waktu mulai (untuk tugas: deadline). ISO UTC. */
-  at: string;
-  until: string;
-  location: string | null;
-  /** Deskripsi jadwal untuk disclosure di baris; event/tugas memakai halaman asal. */
-  description: string | null;
-  url: string | null;
-};
+export const getSchedulesBySemester = cache(async (semester: string): Promise<ScheduleRow[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('schedules')
+    .select(COLUMNS)
+    .eq('semester', semester)
+    .order('day_of_week', { ascending: true })
+    .order('start_time', { ascending: true })
+    .limit(SCHEDULE_LIMIT);
 
-/** Maksimal entri yang ditampilkan ke depan (§19). */
-export const SCHEDULE_ENTRY_LIMIT = 100;
+  if (error) {
+    console.error('[schedule] gagal membaca daftar jadwal', { message: error.message });
+    return [];
+  }
+  return (data ?? []) as ScheduleRow[];
+});
 
 /**
- * Gabungan tiga sumber secara read-only (V-08), sudah urut waktu.
+ * Semester yang sudah punya jadwal, terbaru dulu.
  *
- * Masing-masing sumber dibatasi 100 baris lebih dulu agar penggabungan di
- * memori tidak pernah menerima hasil tak terbatas (§9.4, §12); RLS menyaring
- * baris yang tidak boleh dilihat viewer.
+ * Halaman memakai ini supaya semester lama tetap bisa dibuka kembali, bukan
+ * hanya semester yang ditawarkan form. Satu kelas tidak akan pernah punya
+ * ratusan semester; batasnya hanya pengaman agar tidak ada query tanpa batas.
  */
-export const getScheduleEntries = cache(async (): Promise<ScheduleEntry[]> => {
+export const getScheduleSemesters = cache(async (): Promise<string[]> => {
   const supabase = await createClient();
-  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('semester')
+    .order('semester', { ascending: false })
+    .limit(500);
 
-  const [schedules, events, tasks] = await Promise.all([
-    supabase
-      .from('schedules')
-      .select('id, title, description, start_at, end_at, location, type, url')
-      .gte('end_at', nowIso)
-      .order('start_at', { ascending: true })
-      .limit(SCHEDULE_ENTRY_LIMIT),
-    supabase
-      .from('events')
-      .select('id, title, start_at, end_at, location')
-      .gte('end_at', nowIso)
-      .order('start_at', { ascending: true })
-      .limit(SCHEDULE_ENTRY_LIMIT),
-    supabase
-      .from('tasks')
-      .select('id, title, deadline, target')
-      .eq('status', 'active')
-      .gte('deadline', nowIso)
-      .order('deadline', { ascending: true })
-      .limit(SCHEDULE_ENTRY_LIMIT),
-  ]);
-
-  // Satu sumber gagal tidak boleh mengosongkan seluruh halaman; yang lain tetap
-  // ditampilkan dan kegagalannya sudah dicatat di log masing-masing query.
-  const entries: ScheduleEntry[] = [];
-
-  for (const s of schedules.data ?? []) {
-    entries.push({
-      kind: s.type,
-      id: s.id,
-      title: s.title,
-      at: s.start_at,
-      until: s.end_at,
-      location: s.location,
-      description: s.description,
-      url: s.url,
-    });
+  if (error) {
+    console.error('[schedule] gagal membaca daftar semester', { message: error.message });
+    return [];
   }
-
-  for (const e of events.data ?? []) {
-    entries.push({
-      kind: 'event',
-      id: e.id,
-      title: e.title,
-      at: e.start_at,
-      until: e.end_at,
-      location: e.location,
-      description: null,
-      url: null,
-    });
-  }
-
-  for (const t of tasks.data ?? []) {
-    entries.push({
-      kind: 'task',
-      id: t.id,
-      title: t.title,
-      at: t.deadline,
-      until: t.deadline,
-      location: t.target,
-      description: null,
-      url: null,
-    });
-  }
-
-  entries.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-  return entries.slice(0, SCHEDULE_ENTRY_LIMIT);
+  return sortSemestersDesc((data ?? []).map((row) => row.semester));
 });
