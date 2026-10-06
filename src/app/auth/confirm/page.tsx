@@ -1,5 +1,6 @@
 import { ConfirmAccessForm } from '@/features/auth/components/ConfirmAccessForm';
 import { getClassIdentity } from '@/features/class/queries';
+import { Card } from '@/components/ui/Card';
 
 // Halaman ini bukan statis: isinya selalu tautan sekali pakai yang tidak boleh
 // tersimpan di cache mana pun (§6.2).
@@ -27,7 +28,7 @@ export default async function AuthConfirmPage() {
           <p className="text-body text-text-muted">{identity?.name ?? 'Kelas'}</p>
         </div>
 
-        <div className="rounded-lg border border-border-subtle bg-surface p-6">
+        <Card tier="primary" className="p-6">
           <div className="flex flex-col gap-6">
             <p className="text-small text-text-muted">
               Tautan ini berlaku sekali. Tekan Lanjutkan untuk memverifikasinya, lalu tentukan kata
@@ -36,7 +37,7 @@ export default async function AuthConfirmPage() {
 
             <ConfirmAccessForm />
           </div>
-        </div>
+        </Card>
       </div>
     </main>
   );

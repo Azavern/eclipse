@@ -6,6 +6,7 @@ import {
   type SelectionMap,
 } from '@/features/visibility/components/VisibilityEditor';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
@@ -41,7 +42,7 @@ export default async function SettingsVisibilityPage() {
         description="Atur siapa yang boleh melihat setiap bagian. Bagian yang tidak terlihat tidak pernah dirender — bukan disembunyikan dengan CSS."
       />
 
-      <div className="max-w-content">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-content p-5`}>
         <VisibilityEditor initial={initial} map={map} />
       </div>
     </div>

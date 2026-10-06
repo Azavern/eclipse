@@ -58,7 +58,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const meta = TASK_DISPLAY_META[display];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="card-grid">
       {/*
         "Buat tugas lagi" duduk di sebelah "Ubah tugas" dengan sengaja. Tanpa
         itu, menambah tugas kedua selalu dimulai dari form ubah — dan form itu
@@ -79,7 +79,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         }
       />
 
-      <Section title="Keterangan">
+      <Section tier="primary" title="Keterangan">
         <div className="flex flex-col gap-4">
           <Badge tone={meta.tone} icon={<meta.Icon className="size-3.5" />}>
             {meta.label}
@@ -119,6 +119,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
 
       {canManage ? (
         <Section
+          tier="secondary"
           title="Status"
           description="Menandai selesai mencatat aktivitas `completed` di riwayat kelas."
         >

@@ -2,6 +2,7 @@ import { requirePermission } from '@/lib/visibility/server';
 import { getClassTheme } from '@/features/class/queries';
 import { ThemeEditor } from '@/features/theme/components/ThemeEditor';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
@@ -32,7 +33,7 @@ export default async function SettingsThemePage() {
         description="Warna dan tata letak yang dipakai seluruh aplikasi. Semua kombinasi teks diperiksa terhadap rasio kontras minimal 4,5:1."
       />
 
-      <div className="max-w-content">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-content p-5`}>
         <ThemeEditor defaults={theme} />
       </div>
     </div>

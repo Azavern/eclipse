@@ -4,6 +4,7 @@ import { getViewer } from '@/lib/visibility/server';
 import { safeRedirect } from '@/lib/safe-redirect';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { StorageImage } from '@/components/storage/StorageImage';
+import { Card } from '@/components/ui/Card';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,9 +50,9 @@ export default async function LoginPage({
           ) : null}
         </div>
 
-        <div className="rounded-lg border border-border-subtle bg-surface p-6">
+        <Card tier="primary" className="p-6">
           <LoginForm next={target} />
-        </div>
+        </Card>
       </div>
     </main>
   );

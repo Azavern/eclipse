@@ -35,6 +35,25 @@
   --radius-lg: 1rem;
   --radius-full: 9999px;
 
+  /* Elevasi (DESIGN.md §4): none / low / medium / high, plus satu glow yang
+     dipakai HANYA oleh card Primer. Glow menandai prioritas informasi
+     tertinggi — ia sinyal, bukan dekorasi. Diturunkan dari warna runtime supaya
+     ikut berubah saat tema kelas diganti. */
+  --shadow-low: 0 1px 2px 0 color-mix(in oklab, var(--color-text) 10%, transparent);
+  --shadow-medium:
+    0 2px 4px -1px color-mix(in oklab, var(--color-text) 12%, transparent),
+    0 6px 14px -3px color-mix(in oklab, var(--color-text) 10%, transparent);
+  --shadow-high:
+    0 4px 8px -2px color-mix(in oklab, var(--color-text) 16%, transparent),
+    0 14px 30px -6px color-mix(in oklab, var(--color-text) 16%, transparent);
+  --shadow-glow:
+    0 0 0 1px color-mix(in oklab, var(--color-primary) 40%, transparent),
+    0 6px 22px -4px color-mix(in oklab, var(--color-primary) 34%, transparent);
+  /* Versi glow yang menyala lebih terang dipakai saat card Primer di-hover. */
+  --shadow-glow-high:
+    0 0 0 1px color-mix(in oklab, var(--color-primary) 55%, transparent),
+    0 14px 34px -6px color-mix(in oklab, var(--color-primary) 48%, transparent);
+
   /* Palet runtime -> CSS variables. Nilai Asal ada di buildThemeCss(). */
   --color-primary: var(--theme-primary);
   --color-secondary: var(--theme-secondary);
@@ -50,6 +69,18 @@
   --color-on-secondary: var(--theme-on-secondary);
   --color-control-border: var(--theme-control-border);
   --color-focus: var(--theme-focus);
+
+  /* Garis tegas untuk batas card. Nilainya sama dengan control-border — yang
+     baru hanya namanya: card bukan kontrol, dan kode card tidak seharusnya
+     membaca seperti kode form. */
+  --color-border-strong: var(--theme-control-border);
+
+  /* Permukaan yang diredupkan: dipakai placeholder skeleton dan latar hover
+     tombol. Diturunkan dari theme supaya ikut berubah saat tema kelas diganti.
+     Sebelumnya `bg-surface-dim` dipakai di 15 tempat tapi tokennya tidak pernah
+     ada, sehingga utility-nya tidak pernah dihasilkan dan seluruh hover tombol
+     ghost serta seluruh skeleton tidak pernah terlihat. */
+  --color-surface-dim: color-mix(in oklab, var(--theme-surface) 90%, var(--theme-text-secondary));
 
   /* Panjang layout */
   --container-content: 72rem;
@@ -133,10 +164,59 @@
 }
 
 @layer components {
-  /* Transisi fungsional saja. Tidak ada hover-lift atau fade-in per section. */
+  /* Transisi fungsional untuk kontrol: hanya properti yang berubah saat
+     interaksi, bukan fade-in per section. Sejak 7 Oktober 2026 card dan tombol
+     memang mengangkat diri saat disentuh; itu ada di `.card-interactive` dan
+     pada `Button`, bukan di sini. */
   .transition-func {
     transition-duration: 150ms;
     transition-timing-function: ease-out;
+  }
+
+  /* Motion card: hanya transform, shadow, dan warna garis — bukan seluruh
+     properti, supaya hover pada card besar tidak ikut men-transisikan teks dan
+     latar di dalamnya. Durasi jadi 0.01ms saat pengguna meminta reduced motion,
+     karena aturan global di atas memaksa transition-duration.
+
+     Angka lift dan up-size ada di sini, bukan di utility, supaya seragam di
+     semua tingkat card: yang membedakan prioritas adalah garis dan bayangan,
+     bukan seberapa besar card melompat saat disentuh. */
+  .card-interactive {
+    transition-property: transform, box-shadow, border-color;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+
+  .card-interactive:hover {
+    transform: translateY(calc(var(--spacing) * -1)) scale(1.02);
+  }
+
+  /* Grid kartu: satu kolom di mobile, dua kolom seragam dari 1024px. Kartu
+     terakhir pada jumlah ganjil melebar penuh supaya tidak ada setengah baris
+     kosong. `minmax(0, 1fr)` menahan tabel lebar agar menggulir di dalam
+     kontainernya sendiri, bukan melebarkan grid (§16). */
+  .card-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: calc(var(--spacing) * 6);
+    align-items: start;
+  }
+
+  @media (width >= 1024px) {
+    .card-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card-grid > :last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+    }
+
+    /* Anak grid yang BUKAN card — judul halaman, bilah filter, empty state —
+       selalu melebar penuh. Dengan begitu grid hanya membagi card, dan chrome
+       halaman tetap tersusun satu kolom seperti sebelumnya. */
+    .card-grid > :not(.card-interactive) {
+      grid-column: 1 / -1;
+    }
   }
 
   .skip-link {

@@ -4,6 +4,7 @@ import { signMany } from '@/lib/storage/sign';
 import { getManagedMembers } from '@/features/member/actions';
 import { MembersManager } from '@/features/member/components/MembersManager';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
 
@@ -49,7 +50,7 @@ export default async function SettingsMembersPage() {
         description="Undang anggota baru, nonaktifkan yang tidak aktif lagi, atau hapus beserta seluruh isinya."
       />
 
-      <div className="max-w-content">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-content p-5`}>
         <MembersManager members={rows} viewerId={viewer.userId} />
       </div>
     </div>

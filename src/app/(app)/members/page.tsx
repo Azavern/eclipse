@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { signMany } from '@/lib/storage/sign';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { PageHeader, Section } from '@/components/ui/Section';
+import {
+  CARD_BASE,
+  CARD_INTERACTIVE,
+  CARD_TIER_CLASSES,
+} from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 import { formatDateTime } from '@/lib/time';
@@ -70,13 +75,16 @@ export default async function MembersPage() {
           action={{ href: '/', label: 'Kembali ke beranda' }}
         />
       ) : (
-        <Section title={`${members.length} anggota`}>
+        <Section tier="primary" title={`${members.length} anggota`}>
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {members.map((member) => (
               <li key={member.user_id}>
                 <Link
                   href={`/members/${encodeURIComponent(member.username)}`}
-                  className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 transition-func hover:bg-surface-dim"
+                  // Satu unit informasi = satu card yang bisa diklik seluruhnya,
+                  // jadi ia layak menerima hover. Bedanya dengan section lain:
+                  // di sini seluruh kartunya yang mengarah ke satu tujuan.
+                  className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex items-center gap-3 p-3`}
                 >
                   <AvatarFromPath
                     path={member.avatar_path}

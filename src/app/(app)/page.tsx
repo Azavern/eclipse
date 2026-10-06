@@ -128,6 +128,7 @@ export default async function HomePage() {
       */}
       {viewer.can('class.manage') ? (
         <Section
+          tier="secondary"
           title="Kelola kelas"
           description="Pintu masuk ke semua halaman yang bisa kamu ubah. Halaman lain di menu samping dipakai untuk melihat dan mengelola isi; pengaturan kelas ada di halaman Kelas."
         >

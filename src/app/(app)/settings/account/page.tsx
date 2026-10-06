@@ -35,6 +35,7 @@ export default async function SettingsAccountPage() {
 
       <div className="flex max-w-content flex-col gap-10">
         <Section
+          tier="primary"
           title="Kata sandi"
           description="Mengganti kata sandi tidak mengakhiri sesi di perangkat ini."
         >

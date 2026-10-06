@@ -4,6 +4,7 @@ import { getViewer } from '@/lib/visibility/server';
 import { PWD_SETUP_COOKIE, PWD_SETUP_VALUE } from '@/features/auth/constants';
 import { SetPasswordForm } from '@/features/auth/components/SetPasswordForm';
 import { getClassIdentity } from '@/features/class/queries';
+import { Card } from '@/components/ui/Card';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,9 +45,9 @@ export default async function SetPasswordPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-border-subtle bg-surface p-6">
+        <Card tier="primary" className="p-6">
           <SetPasswordForm mode={mode} />
-        </div>
+        </Card>
       </div>
     </main>
   );

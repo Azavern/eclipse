@@ -13,7 +13,7 @@ export async function MemberPortfolioSection({ userId }: { userId: string }) {
   const items = await getMemberPortfolio(userId);
 
   return (
-    <Section title="Portofolio" description="Proyek, prestasi, dan pengalaman.">
+    <Section tier="primary" title="Portofolio" description="Proyek, prestasi, dan pengalaman.">
       <PortfolioList items={items} />
     </Section>
   );

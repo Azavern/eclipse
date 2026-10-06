@@ -50,7 +50,7 @@ export default async function MemberProfilePage({
   // Query konten diambil oleh section-nya sendiri saat sudah boleh dilihat,
   // jadi tidak ada baris yang diambil lalu tidak dirender.
   return (
-    <div className="flex flex-col gap-8">
+    <div className="card-grid">
       <PageHeader title={member.full_name} description={`@${member.username}`} />
 
       <section className="flex flex-wrap items-center gap-4">
@@ -73,7 +73,7 @@ export default async function MemberProfilePage({
       </section>
 
       {member.bio ? (
-        <Section title="Bio">
+        <Section tier="secondary" title="Bio">
           <p className="text-body text-text">{member.bio}</p>
         </Section>
       ) : null}

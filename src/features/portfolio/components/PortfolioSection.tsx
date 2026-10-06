@@ -15,7 +15,11 @@ export async function PortfolioSection() {
   const [items, map] = await Promise.all([getMyPortfolio(), getVisibilityMap()]);
 
   return (
-    <Section title="Portofolio" description="Proyek, prestasi, dan pengalaman yang kamu tampilkan.">
+    <Section
+      tier="secondary"
+      title="Portofolio"
+      description="Proyek, prestasi, dan pengalaman yang kamu tampilkan."
+    >
       <PortfolioEditor items={items} map={map} />
     </Section>
   );

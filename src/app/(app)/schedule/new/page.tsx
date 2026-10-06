@@ -3,6 +3,7 @@ import { getScheduleSemesters } from '@/features/schedule/queries';
 import { CreateScheduleForm } from '@/features/schedule/components/ScheduleForm';
 import { recentSemesters, semesterFor, sortSemestersDesc } from '@/lib/semester';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ export default async function NewSchedulePage() {
         description="Cukup hari dan jam: jadwal berlaku setiap minggu sepanjang semester, jadi tidak perlu diisi ulang tiap minggu."
       />
 
-      <div className="max-w-form">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
         <CreateScheduleForm semesters={semesters} defaultSemester={semesterFor(new Date())} />
       </div>
     </div>

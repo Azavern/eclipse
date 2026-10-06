@@ -4,6 +4,7 @@ import { getScheduleById, getScheduleSemesters } from '@/features/schedule/queri
 import { EditScheduleForm } from '@/features/schedule/components/ScheduleForm';
 import { recentSemesters, sortSemestersDesc } from '@/lib/semester';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,7 @@ export default async function EditSchedulePage({
         description="Perubahan berlaku untuk setiap minggu di semester ini."
       />
 
-      <div className="max-w-form">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
         <EditScheduleForm
           id={schedule.id}
           title={schedule.title}

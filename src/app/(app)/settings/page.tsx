@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getViewer } from '@/lib/visibility/server';
 import type { Permission } from '@/lib/visibility/types';
-import { PageHeader, Section, List, ListItem } from '@/components/ui/Section';
+import { PageHeader, Section } from '@/components/ui/Section';
+import { CARD_BASE, CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -142,22 +143,32 @@ export default async function SettingsIndexPage() {
           description="Pengaturan yang bisa kamu ubah akan muncul di sini."
         />
       ) : (
-        <div className="flex max-w-content flex-col gap-10">
+        <div className="card-grid max-w-content">
           {groups.map((group) => (
-            <Section key={group.title} title={group.title} description={group.description}>
-              <List>
+            <Section
+              key={group.title}
+              tier="secondary"
+              title={group.title}
+              description={group.description}
+            >
+              {/*
+                Kartu besar = kategori (beranda pengaturan ini), datar dan tidak
+                bisa diklik sebagai satu kesatuan. Kartu kecil = satu unit
+                informasi di dalamnya — dan karena tiap unit memang sebuah tujuan
+                navigasi, hanya unit yang menerima hover.
+              */}
+              <div className="grid gap-3 sm:grid-cols-2">
                 {group.entries.map((entry) => (
-                  <ListItem key={entry.href} className="flex flex-col gap-1">
-                    <Link
-                      href={entry.href}
-                      className="text-body font-semibold text-primary underline underline-offset-4"
-                    >
-                      {entry.title}
-                    </Link>
-                    <p className="text-small text-text-muted">{entry.purpose}</p>
-                  </ListItem>
+                  <Link
+                    key={entry.href}
+                    href={entry.href}
+                    className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex flex-col gap-1 p-4`}
+                  >
+                    <span className="text-body font-semibold text-text">{entry.title}</span>
+                    <span className="text-small text-text-muted">{entry.purpose}</span>
+                  </Link>
                 ))}
-              </List>
+              </div>
             </Section>
           ))}
         </div>

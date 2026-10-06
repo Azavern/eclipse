@@ -5,6 +5,7 @@ import { getTaskById } from '@/features/tasks/queries';
 import { EditTaskForm } from '@/features/tasks/components/TaskForm';
 import { DEFAULT_TIMEZONE, utcIsoToLocalInput } from '@/lib/time';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 
@@ -46,7 +47,7 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
         action={<ButtonLink href={`/tasks/${task.id}`} variant="secondary">Batal</ButtonLink>}
       />
 
-      <div className="max-w-form">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
         <EditTaskForm
           id={task.id}
           title={task.title}

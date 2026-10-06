@@ -6,6 +6,7 @@ import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
+import { Button } from '@/components/ui/Button';
 
 /**
  * Permintaan ganti kata sandi mandiri (A-06).
@@ -29,15 +30,22 @@ export function ForgotPasswordForm() {
 
   return (
     <div className="flex flex-col gap-3">
-      <button
+      {/*
+        Tombol, bukan teks bergaris bawah. Ini kontrol yang membuka panel, bukan
+        tautan di tengah kalimat — dan setelah kartu dipakai di mana-mana, teks
+        biru bergaris bawah di dalam kartu terbaca sebagai isi, bukan sebagai
+        sesuatu yang bisa ditekan.
+      */}
+      <Button
         type="button"
+        variant="ghost"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-11 w-fit items-center text-small font-semibold text-primary underline transition-func hover:opacity-80"
+        className="w-fit"
       >
         {open ? 'Batal minta tautan' : 'Lupa kata sandi?'}
-      </button>
+      </Button>
 
       {open ? (
         <div id={panelId} className="flex flex-col gap-4 rounded-md border border-border-subtle p-4">

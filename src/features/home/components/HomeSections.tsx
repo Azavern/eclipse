@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, CalendarDays, ClipboardList, Sparkles } from 'lucide-react';
 import { Section, List, ListItem } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES, type CardTier } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { StorageImage } from '@/components/storage/StorageImage';
@@ -55,7 +56,10 @@ export function HomeHero({
   ) : null;
 
   return (
-    <section className="flex flex-col gap-4" aria-labelledby="hero-name">
+    <section
+      className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} flex flex-col gap-4 overflow-hidden p-5`}
+      aria-labelledby="hero-name"
+    >
       {cover}
 
       <div className="flex flex-col gap-2">
@@ -319,15 +323,18 @@ export function HomeSection({
   title,
   description,
   action,
+  tier,
   children,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  /** Tingkat prioritas card di beranda; lihat `Card.tsx`. */
+  tier: CardTier;
   children: React.ReactNode;
 }) {
   return (
-    <Section title={title} description={description} action={action}>
+    <Section title={title} description={description} action={action} tier={tier}>
       {children}
     </Section>
   );

@@ -20,6 +20,7 @@ export async function ResetRequestSlot({ timezone }: { timezone: string }) {
 
   return (
     <Section
+      tier="primary"
       title="Permintaan ganti kata sandi"
       description="Anggota yang lupa kata sandinya lewat halaman masuk. Terbitkan tautannya di sini, lalu kirimkan lewat WhatsApp."
     >

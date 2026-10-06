@@ -6,7 +6,8 @@ import { TASK_STATUS_LABEL, toTaskStatus } from '@/features/tasks/schemas';
 import { TASK_DISPLAY_META } from '@/features/tasks/display';
 import { taskDisplayStatus } from '@/lib/time/domain';
 import { formatDateTime } from '@/lib/time';
-import { PageHeader, List, ListItem } from '@/components/ui/Section';
+import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState, NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
@@ -116,14 +117,18 @@ export default async function TasksPage({
           />
         )
       ) : (
-        <List>
+        <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.secondary} p-5`}>
+          <div className="flex flex-col gap-3">
           {tasks.map((task) => {
             const display = taskDisplayStatus({ status: task.status, deadline: new Date(task.deadline) }, now);
             const meta = TASK_DISPLAY_META[display];
             const urgent = display === 'overdue' || display === 'due_soon';
 
             return (
-              <ListItem key={task.id} className="flex flex-col gap-1">
+              <div
+                key={task.id}
+                className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} flex flex-col gap-1 p-4`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <h2
                     className={`text-body text-text ${urgent ? 'font-semibold' : 'font-normal'}`}
@@ -141,10 +146,11 @@ export default async function TasksPage({
                 <Link href={`/tasks/${task.id}`} className="mt-1 text-small text-primary underline">
                   Lihat tugas
                 </Link>
-              </ListItem>
+              </div>
             );
           })}
-        </List>
+          </div>
+        </div>
       )}
     </div>
   );

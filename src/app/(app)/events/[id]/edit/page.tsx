@@ -6,6 +6,7 @@ import { EditEventForm } from '@/features/events/components/EventForm';
 import { DEFAULT_TIMEZONE, utcIsoToLocalInput } from '@/lib/time';
 import { StorageImage } from '@/components/storage/StorageImage';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,9 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     <div className="flex flex-col gap-8">
       <PageHeader title="Ubah event" description="Kosongkan sebuah isian untuk menghapus nilainya." />
 
-      <div className="flex max-w-form flex-col gap-6">
+      <div
+        className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} flex max-w-form flex-col gap-6 p-5`}
+      >
         {event.cover_path ? (
           <StorageImage
             path={event.cover_path}

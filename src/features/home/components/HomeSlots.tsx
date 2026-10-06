@@ -41,6 +41,7 @@ export async function UpcomingSlot({
     <div className="flex flex-col gap-8">
       {show.schedule ? (
         <HomeSection
+          tier="primary"
           title="Jadwal"
           description="Jadwal kuliah dan kegiatan kelas."
           action={<ButtonLink href="/schedule" variant="ghost" size="md">Buka jadwal</ButtonLink>}
@@ -55,6 +56,7 @@ export async function UpcomingSlot({
 
       {show.tasks ? (
         <HomeSection
+          tier="secondary"
           title="Tugas"
           description="Tugas dengan tenggat terdekat."
           action={<ButtonLink href="/tasks" variant="ghost" size="md">Buka tugas</ButtonLink>}
@@ -69,6 +71,7 @@ export async function UpcomingSlot({
 
       {show.events ? (
         <HomeSection
+          tier="secondary"
           title="Event"
           description="Event mendatang."
           action={<ButtonLink href="/events" variant="ghost" size="md">Buka event</ButtonLink>}
@@ -90,7 +93,7 @@ export async function OverviewSlot() {
   if (!overview) return null;
 
   return (
-    <HomeSection title="Ringkasan" description="Angka agregat kelas minggu ini.">
+    <HomeSection tier="secondary" title="Ringkasan" description="Angka agregat kelas minggu ini.">
       <OverviewStats overview={overview} />
     </HomeSection>
   );
@@ -100,7 +103,7 @@ export async function ActivitySlot({ timezone }: { timezone: string }) {
   const rows = await getActivityTrend();
 
   return (
-    <HomeSection title="Aktivitas" description="Jumlah kejadian dalam 4 minggu terakhir.">
+    <HomeSection tier="tertiary" title="Aktivitas" description="Jumlah kejadian dalam 4 minggu terakhir.">
       <ActivityTrend rows={rows} timezone={timezone} />
     </HomeSection>
   );
@@ -110,7 +113,7 @@ export async function MembersSlot() {
   const members = await getRecentMembers();
 
   return (
-    <HomeSection title="Anggota" description="Anggota yang terbaru bergabung.">
+    <HomeSection tier="secondary" title="Anggota" description="Anggota yang terbaru bergabung.">
       <MembersStrip members={members} />
     </HomeSection>
   );

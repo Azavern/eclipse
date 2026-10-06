@@ -12,7 +12,7 @@ export async function MemberSocialSection({ userId }: { userId: string }) {
   const links = await getMemberSocialLinks(userId);
 
   return (
-    <Section title="Tautan sosial">
+    <Section tier="tertiary" title="Tautan sosial">
       <SocialLinks links={links} />
     </Section>
   );

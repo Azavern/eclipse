@@ -1070,6 +1070,112 @@ penanda error.
 
 ---
 
+## Card berjenjang, grid, dan motion hover (7 Oktober 2026)
+
+Permintaan Knotus: semua section jadi card bergaris tegas dalam grid yang
+kontrasnya menyatakan prioritas informasi, plus animasi hover (shadow, glow,
+up-size) di setiap interaksi — disusul permintaan kedua: bedakan dengan jelas
+mana teks, mana tombol, dan mana kelompok informasi.
+
+### Keputusan yang diambil bersama Knotus
+
+| Pertanyaan | Pilihan |
+|---|---|
+| Tingkat prioritas | 3: Primer / Sekunder / Tersier |
+| Cakupan | Semua `<Section>`, termasuk form dan tabel |
+| Susunan | Grid 2 kolom seragam (1 kolom di bawah 1024 px) |
+
+### Yang dibuat
+
+- **Token elevasi** di `globals.css`: `--shadow-low/medium/high`, `--shadow-glow`,
+  `--shadow-glow-high`, dan `--color-border-strong`. Semuanya diturunkan dari
+  warna runtime lewat `color-mix`, jadi ikut berubah saat tema kelas diganti.
+- **`src/components/ui/Card.tsx`**: `CardTier`, `Card`, `CardGrid`. Kontras antar
+  tingkat dibangun dari tebal garis, radius, dan bayangan — latarnya tetap
+  `surface` untuk semuanya, supaya tidak ada card yang terbaca sebagai pesan error.
+- **`Section` sekarang card**, dan `tier` sengaja **wajib**: prioritas tiap
+  section adalah keputusan per halaman, dan nilai bawaan akan membuat semuanya
+  tampak sama kuat.
+- **Grid** lewat `.card-grid`. Anak grid yang bukan card — `PageHeader`, bilah
+  filter, empty state — melebar penuh, jadi grid hanya membagi card dan chrome
+  halaman tetap satu kolom. Card terakhir pada jumlah ganjil juga melebar penuh.
+- **Motion** lewat `.card-interactive`: lift 4 px + up-size 2 %, dengan transisi
+  hanya pada transform/shadow/border. Tombol: lift 2 px + shadow.
+- **Cakupan halaman: seluruh 26 route.** 19 file memakai `Section` berjenjang;
+  halaman form/tool (`/*/new`, `/*/[id]/edit`, `/settings/members`,
+  `/settings/theme`, `/settings/visibility`) memakai `CARD_BASE` +
+  `CARD_TIER_CLASSES.primary` langsung, jadi tidak ada daftar kelas yang
+  disalin; `/events` dan `/tasks` meneruskan kelas card lewat `className` milik
+  `List`. `/dev/ui` menumpang gallery-nya yang sudah ber-card. Sisa satu-satunya
+  tanpa card: tidak ada.
+
+### Bug yang ikut ditemukan: `bg-surface-dim` tidak pernah ada
+
+`bg-surface-dim` dipakai di 15 tempat — placeholder `Skeleton`, hover tombol
+`ghost`, hover kartu anggota — tetapi token `--color-surface-dim` **tidak pernah
+didefinisikan**. Utility-nya karena itu tidak pernah dihasilkan Tailwind: 0
+kemunculan di CSS hasil build. Artinya skeleton tidak terlihat sama sekali dan
+seluruh hover tombol ghost tidak berefek. Tokennya sekarang ada, diturunkan dari
+`--theme-surface` + `--theme-text-secondary`, dan diverifikasi lewat CSS hasil
+build. Utang yang belum dibayar: belum diperiksa halaman mana saja yang tampak
+berubah karenanya.
+
+### "Mana teks, mana tombol"
+
+- Tombol `ghost` tadinya `bg-transparent border-transparent` — persis terlihat
+  seperti teks biasa. Sekarang bergaris dan berpermukaan; yang membedakannya dari
+  `secondary` adalah warna garis, bukan ada-tidaknya garis.
+- Toggle "Lupa kata sandi?" di `/login` tadinya `<button>` yang ditata sebagai
+  teks biru bergaris bawah. Sekarang memakai primitive `Button` varian `ghost`.
+- Kartu `/login`, `/auth/confirm`, dan `/set-password` tadinya div bergaris
+  tangan-sendiri; sekarang memakai `Card`.
+
+### Deviasi dari DESIGN.md §9 (disadari, diminta)
+
+DESIGN.md §9 menyebut *"hover-lift on every card"* sebagai anti-pola, dan
+`globals.css` sebelumnya menulis "Tidak ada hover-lift atau fade-in per section".
+Permintaan Knotus menimpanya (DESIGN.md §11: instruksi eksplisit mengalahkan
+default §9). Yang tidak dikompromikan: motion tetap satu bahasa (seragam di semua
+card, bukan variasi acak), glow hanya menandai card Primer sehingga ia sinyal
+prioritas dan bukan dekorasi, dan `prefers-reduced-motion` tetap menekan durasi ke
+0.01 ms lewat aturan global yang sudah ada.
+
+### Verifikasi
+
+`lint`, `typecheck`, `test` (13 file, 161 tes), `check:tokens`,
+`check:boundaries`, dan `build`: semua keluar 0. **23 cek Chrome** (Playwright
+sementara, dihapus setelah dipakai), semuanya lulus:
+
+- `/dev/ui` @1280 px: 8 card, grid 2 kolom (`540px 540px`); tingkat Primer
+  bergaris **2 px**, Tersier **1 px**; radius berbeda antar tingkat (16 px vs
+  8 px); satu tingkat sengaja datar tanpa bayangan.
+- Hover card: bayangan muncul dan `transform` menjadi
+  `matrix(1.02, 0, 0, 1.02, 0, -4)`.
+- Hover tombol: `translate` menjadi `0px -2px` dan bayangan muncul.
+- Toggle di `/login` bergaris 1 px dan berlatar `surface` — bukan lagi teks.
+- `/`, `/class`, `/login`: HTTP 200, halaman tidak rusak, card ada.
+- @700 px grid menjadi 1 kolom.
+- `PageHeader` di `/class` melebar penuh pada 1280 px dan 1440 px.
+- `prefers-reduced-motion: reduce` → durasi transisi card `1e-05s`.
+
+### Yang TIDAK terverifikasi
+
+- Halaman yang butuh sesi — `/members`, `/members/[username]`, `/schedule`,
+  `/tasks/[id]`, `/settings/**`, dan beranda dalam keadaan masuk — hanya
+  diperiksa lewat typecheck, build, dan smoke HTTP (semua 26 route menjawab 200
+  sebagai anonim, tidak ada 500), bukan render dengan akun sungguhan. Yang
+  benar-benar dirender lengkap di peramban: `/`, `/class`, `/login`, `/dev/ui`.
+- Beranda tetap satu kolom: urutan section-nya ditentukan preset tata letak yang
+  dipilih Ketua, dan salah satu slotnya bisa kosong — kalau dipaksa jadi grid,
+  slot kosong itu mengambil satu sel. Jadi kartu berjenjangnya berlaku, gridnya
+  belum.
+- Tidak ada tangkapan layar atau diff visual; penilaian estetika belum dilakukan
+  manusia.
+- Belum diukur di Safari/Firefox: `color-mix()` dan `:not()` di dalam grid
+  didukung keduanya, tapi baru diuji di Chrome.
+
+---
+
 ## Desain Stitch vs blueprint
 
 Ekspor Stitch tersedia di `stitch_ui_system/` (16 layar + `DESIGN.md` sistem

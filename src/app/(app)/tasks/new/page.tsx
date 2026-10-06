@@ -1,6 +1,7 @@
 import { requirePermission } from '@/lib/visibility/server';
 import { CreateTaskForm } from '@/features/tasks/components/TaskForm';
 import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export default async function NewTaskPage() {
         description="Satu isian untuk satu tugas. Kamu bisa membuat tugas sebanyak-banyaknya; setiap tugas berdiri sendiri."
       />
 
-      <div className="max-w-form">
+      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
         <CreateTaskForm />
       </div>
     </div>

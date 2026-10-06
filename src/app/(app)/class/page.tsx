@@ -65,7 +65,7 @@ export default async function ClassPage() {
   const visibleLinks = showLinks ? links : [];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="card-grid">
       <PageHeader
         // Judul untuk pengelola sama dengan nama entri di indeks pengaturan
         // ("Identitas kelas"), supaya satu fungsi tidak punya dua nama (§10.1).
@@ -82,6 +82,7 @@ export default async function ClassPage() {
       {editable ? (
         <>
           <Section
+            tier="primary"
             title="Identitas kelas"
             description="Nama, kode, tagline, deskripsi, sorotan, dan zona waktu yang dipakai semua halaman."
           >
@@ -101,6 +102,7 @@ export default async function ClassPage() {
           </Section>
 
           <Section
+            tier="secondary"
             title="Gambar kelas"
             description="Logo dipakai di sidebar dan halaman masuk; cover dipakai sebagai latar beranda."
           >
@@ -148,6 +150,7 @@ export default async function ClassPage() {
           </Section>
 
           <Section
+            tier="secondary"
             title="Tautan kontak kelas"
             description="Media sosial dan kontak kelas. Tautan yang tampil ke pengunjung tetap mengikuti aturan visibilitas."
           >
@@ -167,7 +170,11 @@ export default async function ClassPage() {
         Pratinjau apa adanya: inilah yang dibaca pengunjung tanpa login, jadi
         seluruh isinya tetap mengikuti aturan visibilitas per field.
       */}
-      <Section title="Tampilan publik" description="Inilah yang dilihat pengunjung yang belum masuk.">
+      <Section
+        tier="tertiary"
+        title="Tampilan publik"
+        description="Inilah yang dilihat pengunjung yang belum masuk."
+      >
         <div className="flex flex-col gap-4">
           {identity.cover_path ? (
             <StorageImage

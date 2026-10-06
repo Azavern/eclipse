@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CARD_BASE, CARD_TIER_CLASSES, CARD_INTERACTIVE, type CardTier } from './Card';
 
 export function SkipLink() {
   return (
@@ -33,13 +34,23 @@ export function PageHeader({
 }
 
 /**
- * Pembatas section. Hierarki dibangun dari ukuran, jarak, dan garis pemisah —
- * bukan dari membuat semua elemen tebal atau berwarna (§2).
+ * Kelompok informasi berjudul, dirender sebagai card bergaris tegas.
+ *
+ * Hierarki dibangun dari ukuran, jarak, dan garis — bukan dari membuat semua
+ * elemen tebal atau berwarna (§2). Garis card adalah batas kelompok, sedangkan
+ * garis tipis di bawah judul memisahkan judul dari isinya, sehingga jelas mana
+ * judul, mana isi, dan mana aksi.
+ *
+ * `tier` sengaja WAJIB, bukan punya nilai bawaan: prioritas tiap section adalah
+ * keputusan per halaman, dan nilai bawaan akan membuat semuanya tampak sama
+ * kuat — persis yang tidak diinginkan. Tingkatnya dijelaskan di `Card.tsx`.
  */
 export function Section({
   title,
   description,
   action,
+  tier,
+  interactive = false,
   children,
   className = '',
   id,
@@ -47,18 +58,29 @@ export function Section({
   title: string;
   description?: string;
   action?: ReactNode;
+  tier: CardTier;
+  /**
+   * `true` hanya bila card-nya sendiri yang bisa diklik. Section yang isinya
+   * teks dan tombol-tombol terpisah TIDAK ini: yang bisa diklik adalah tombol
+   * di dalamnya, dan tombol itu sendiri yang sudah punya hover sendiri.
+   */
+  interactive?: boolean;
   children: ReactNode;
   className?: string;
   id?: string;
 }) {
   return (
-    <section id={id} className={`flex flex-col gap-4 ${className}`}>
-      <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border-subtle pb-2">
+    <section
+      id={id}
+      className={`${interactive ? CARD_INTERACTIVE : ''} ${CARD_TIER_CLASSES[tier]} ${CARD_BASE} flex flex-col gap-4 p-5 ${className}`}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border-subtle pb-3">
         <div className="flex flex-col gap-1">
           <h2 className="text-h2 font-semibold text-text">{title}</h2>
           {description ? <p className="text-small text-text-muted">{description}</p> : null}
         </div>
-        {action}
+        {/* Aksi dipisah dari teks judul, dan hanya dirender bila memang ada. */}
+        {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
       </div>
       {children}
     </section>
@@ -66,8 +88,8 @@ export function Section({
 }
 
 /**
- * Daftar memakai pemisah (divider), bukan kartu (§17.3). Kartu hanya dipakai
- * bila pengelompokan memang membutuhkannya, mis. grid anggota.
+ * Daftar di DALAM card memakai pemisah baris, bukan card bersarang — card di
+ * dalam card membuat batas kelompok jadi kabur, bukan lebih jelas (§17.3).
  */
 export function List({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <div className={`flex flex-col ${className}`}>{children}</div>;

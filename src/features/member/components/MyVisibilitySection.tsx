@@ -26,6 +26,7 @@ export async function MyVisibilitySection() {
 
   return (
     <Section
+      tier="secondary"
       title="Visibilitas profil"
       description="Atur siapa yang boleh melihat bagian profilmu. Aturan kelas tetap menjadi batas terluar."
     >

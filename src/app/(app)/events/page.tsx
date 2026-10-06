@@ -4,7 +4,8 @@ import { getClassIdentity } from '@/features/class/queries';
 import { getEvents } from '@/features/events/queries';
 import { toEventWhen } from '@/features/events/schemas';
 import { formatRange } from '@/lib/time';
-import { PageHeader, List, ListItem } from '@/components/ui/Section';
+import { PageHeader } from '@/components/ui/Section';
+import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { EmptyState, NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 
@@ -91,9 +92,13 @@ export default async function EventsPage({
           />
         )
       ) : (
-        <List>
+        <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.secondary} p-5`}>
+          <div className="flex flex-col gap-3">
           {events.map((event) => (
-            <ListItem key={event.id} className="flex flex-col gap-1">
+            <div
+              key={event.id}
+              className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} flex flex-col gap-1 p-4`}
+            >
               <h2 className="text-body font-semibold text-text">{event.title}</h2>
               <p className="text-small text-text-muted">
                 {formatRange(event.start_at, event.end_at, timezone)}
@@ -109,9 +114,10 @@ export default async function EventsPage({
               >
                 Lihat event
               </Link>
-            </ListItem>
+            </div>
           ))}
-        </List>
+          </div>
+        </div>
       )}
     </div>
   );

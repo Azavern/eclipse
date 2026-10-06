@@ -85,8 +85,12 @@ export default async function SettingsProfilePage({
         </p>
       ) : null}
 
-      <div className="flex max-w-content flex-col gap-10">
-        <Section title="Foto" description="Dipakai di daftar anggota dan komentar.">
+      <div className="card-grid max-w-content">
+        <Section
+          tier="tertiary"
+          title="Foto"
+          description="Dipakai di daftar anggota dan komentar."
+        >
           <div className="flex items-center gap-4">
             <AvatarFromPath path={profile.avatar_path} name={profile.full_name} size="lg" />
             <div className="max-w-form">
@@ -95,7 +99,11 @@ export default async function SettingsProfilePage({
           </div>
         </Section>
 
-        <Section title="Informasi" description="Username dipakai pada tautan profil.">
+        <Section
+          tier="primary"
+          title="Informasi"
+          description="Username dipakai pada tautan profil."
+        >
           <div className="max-w-form">
             <ProfileForm
               defaults={{

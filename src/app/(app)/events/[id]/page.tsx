@@ -62,7 +62,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         />
       ) : null}
 
-      <Section title="Keterangan">
+      <Section tier="primary" title="Keterangan">
         <dl className="grid gap-3 sm:grid-cols-2">
           <div>
             <dt className="text-caption font-semibold text-text-muted">Lokasi</dt>

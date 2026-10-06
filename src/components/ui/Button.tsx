@@ -18,11 +18,14 @@ export type ButtonSize = 'md' | 'lg';
  */
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-on-primary border border-transparent hover:brightness-110 active:brightness-95',
+    'bg-primary text-on-primary border border-primary hover:brightness-110 active:brightness-95',
   secondary:
     'bg-surface text-primary border border-primary hover:bg-primary hover:text-on-primary',
+  // `ghost` tetap bergaris dan berpermukaan: tanpa keduanya ia terbaca sebagai
+  // teks biasa, bukan sebagai tombol yang bisa ditekan. Yang membedakannya dari
+  // `secondary` adalah warna garis, bukan ada-tidaknya garis.
   ghost:
-    'bg-transparent text-text-muted border border-transparent hover:bg-surface-dim hover:text-text',
+    'bg-surface text-text-muted border border-border-strong hover:border-text-muted hover:bg-surface-dim hover:text-text',
   danger: 'bg-surface text-error border border-error hover:bg-error hover:text-on-primary',
 };
 
@@ -33,7 +36,9 @@ const SIZES: Record<ButtonSize, string> = {
 
 const BASE =
   'inline-flex items-center justify-center rounded-md font-semibold transition-func ' +
-  'disabled:cursor-not-allowed disabled:opacity-55 aria-busy:cursor-progress';
+  'hover:-translate-y-0.5 hover:shadow-medium active:translate-y-0 active:shadow-low ' +
+  'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 ' +
+  'disabled:hover:shadow-none aria-busy:cursor-progress';
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;

@@ -82,7 +82,7 @@ export default async function SchedulePage({
   })).filter((group) => group.rows.length > 0);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="card-grid">
       <PageHeader
         title="Jadwal"
         description="Jadwal kuliah kelas, berulang setiap minggu sepanjang semester."
@@ -112,7 +112,7 @@ export default async function SchedulePage({
         />
       ) : (
         groups.map((group) => (
-          <Section key={group.value} title={group.label}>
+          <Section key={group.value} tier="secondary" title={group.label}>
             <List>
               {group.rows.map((row) => {
                 const Icon = TYPE_ICON[row.type];

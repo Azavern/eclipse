@@ -15,7 +15,11 @@ export async function SocialLinksSection() {
   const [links, map] = await Promise.all([getMySocialLinks(), getVisibilityMap()]);
 
   return (
-    <Section title="Tautan sosial" description="Tautan kontak dan media sosial yang muncul di profilmu.">
+    <Section
+      tier="secondary"
+      title="Tautan sosial"
+      description="Tautan kontak dan media sosial yang muncul di profilmu."
+    >
       <SocialLinksEditor links={links} map={map} />
     </Section>
   );

@@ -31,13 +31,13 @@ export function StateGallery() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
-    <div className="mx-auto flex w-full max-w-content flex-col gap-10 px-4 py-8 lg:px-6">
+    <div className="card-grid mx-auto w-full max-w-content px-4 py-8 lg:px-6">
       <PageHeader
         title="Galeri state"
         description="Setiap primitive pada setiap state. Halaman ini hanya ada di luar produksi."
       />
 
-      <Section title="Button">
+      <Section tier="primary" title="Button">
         <Row label="varian (default)">
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
@@ -79,7 +79,7 @@ export function StateGallery() {
         </Row>
       </Section>
 
-      <Section title="Badge (ikon + teks, tidak hanya warna)">
+      <Section tier="secondary" title="Badge (ikon + teks, tidak hanya warna)">
         <Row label="tone">
           <Badge icon={<Clock aria-hidden="true" className="size-3.5" />}>Segera berakhir</Badge>
           <Badge tone="info">Aktif</Badge>
@@ -95,7 +95,11 @@ export function StateGallery() {
         </Row>
       </Section>
 
-      <Section title="Input" description="Semua state: default, filled, error, disabled.">
+      <Section
+        tier="secondary"
+        title="Input"
+        description="Semua state: default, filled, error, disabled."
+      >
         <div className="grid gap-6 md:grid-cols-2">
           <FormField id="g-default" label="Default">
             {(describedBy) => (
@@ -169,7 +173,7 @@ export function StateGallery() {
         </div>
       </Section>
 
-      <Section title="Avatar (gambar, fallback inisial, ukuran)">
+      <Section tier="tertiary" title="Avatar (gambar, fallback inisial, ukuran)">
         <Row label="ukuran dan fallback">
           <Avatar name="Ahmad Fauzi" size="sm" />
           <Avatar name="Ahmad Fauzi" size="md" />
@@ -178,7 +182,7 @@ export function StateGallery() {
         </Row>
       </Section>
 
-      <Section title="Dialog dan Disclosure">
+      <Section tier="secondary" title="Dialog dan Disclosure">
         <Row label="aksi">
           <Button onClick={() => setDialogOpen(true)}>Buka dialog</Button>
           <Disclosure label="Menu contoh" trigger={<span className="px-2">Disclosure</span>}>
@@ -198,7 +202,7 @@ export function StateGallery() {
         </Row>
       </Section>
 
-      <Section title="Empty dan error state">
+      <Section tier="tertiary" title="Empty dan error state">
         <EmptyState
           title="Belum ada event mendatang."
           description="Kegiatan kelas akan muncul di sini."
@@ -210,12 +214,12 @@ export function StateGallery() {
         </div>
       </Section>
 
-      <Section title="Skeleton (bentuk konten sebenarnya, tanpa animasi)">
+      <Section tier="tertiary" title="Skeleton (bentuk konten sebenarnya, tanpa animasi)">
         <SkeletonText lines={2} />
         <SkeletonList rows={2} />
       </Section>
 
-      <Section title="Transition (spesifikasi tertulis, bukan frame)">
+      <Section tier="tertiary" title="Transition (spesifikasi tertulis, bukan frame)">
         <ul className="flex flex-col gap-2 text-small text-text-muted">
           <li>Dialog tutup → buka: opacity + translateY(8px→0), 150 ms, ease-out</li>
           <li>Dialog buka → tutup: opacity, 100 ms, ease-in</li>
