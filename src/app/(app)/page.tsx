@@ -123,29 +123,9 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col gap-10">
       {/*
-        Dua blok yang menjawab "halaman ini untuk apa?" dan "kenapa isinya
-        sedikit?".
-
-        Pengunjung tanpa login melihat identitas kelas saja pada konfigurasi
-        bawaan. Tanpa penjelasan, halaman kosong itu terbaca sebagai situs yang
-        rusak — padahal itu aturan yang sengaja (§7.1, E1).
-
         Pengelola kelas mendapat pintu masuk ke halaman yang bisa ia ubah.
         Ditaruh di atas, bukan di bawah, karena halaman ini bisa panjang.
       */}
-      {!viewer.isSignedIn ? (
-        <div className="rounded-md border border-border-subtle px-4 py-3">
-          <p className="text-body font-semibold text-text">Halaman publik kelas</p>
-          <p className="text-small text-text-muted">
-            Jadwal, tugas, event, dan daftar anggota hanya bisa dibaca anggota kelas. Yang terbuka
-            untuk umum adalah identitas kelas di bawah ini.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <ButtonLink href="/login">Masuk ke akunmu</ButtonLink>
-          </div>
-        </div>
-      ) : null}
-
       {viewer.can('class.manage') ? (
         <Section
           title="Kelola kelas"

@@ -19,48 +19,54 @@ export function LoginForm({ next }: { next: string }) {
   const first = (name: string) => fieldErrors?.[name]?.[0];
 
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <input type="hidden" name="next" value={next} />
+    <div className="flex flex-col gap-4">
+      <form action={action} className="flex flex-col gap-4">
+        <input type="hidden" name="next" value={next} />
 
-      <FormStatus state={state} successMessage="Berhasil masuk." />
+        <FormStatus state={state} successMessage="Berhasil masuk." />
 
-      <FormField id="email" label="Email" error={first('email')} required>
-        {(describedBy) => (
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            invalid={Boolean(first('email'))}
-            defaultValue={values?.email}
-            describedBy={describedBy}
-          />
-        )}
-      </FormField>
+        <FormField id="email" label="Email" error={first('email')} required>
+          {(describedBy) => (
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              invalid={Boolean(first('email'))}
+              defaultValue={values?.email}
+              describedBy={describedBy}
+            />
+          )}
+        </FormField>
 
-      <FormField id="password" label="Kata sandi" error={first('password')} required>
-        {(describedBy) => (
-          <PasswordInput
-            id="password"
-            name="password"
-            autoComplete="current-password"
-            required
-            invalid={Boolean(first('password'))}
-            describedBy={describedBy}
-          />
-        )}
-      </FormField>
+        <FormField id="password" label="Kata sandi" error={first('password')} required>
+          {(describedBy) => (
+            <PasswordInput
+              id="password"
+              name="password"
+              autoComplete="current-password"
+              required
+              invalid={Boolean(first('password'))}
+              describedBy={describedBy}
+            />
+          )}
+        </FormField>
 
-      <SubmitButton pendingLabel="Memeriksa…">Masuk</SubmitButton>
+        <SubmitButton pendingLabel="Memeriksa…">Masuk</SubmitButton>
+      </form>
 
       {/*
         "Lupa kata sandi" tetap melalui Ketua: tidak ada email delivery (A-05),
         jadi pemulihannya lewat tautan yang dia terbitkan sendiri (§6.2). Yang
         berubah dari kalimat mati adalah anggota bisa memberi tahu lewat form,
         dan permintaannya muncul di beranda Ketua.
+
+        Form ini sengaja di LUAR <form> login: <form> tidak boleh bersarang di
+        dalam <form> — React memperingatkan "cannot be a descendant of <form>",
+        hidrasi gagal, dan tombol kirim tidak pernah menjalankan Server Action-nya.
       */}
       <ForgotPasswordForm />
-    </form>
+    </div>
   );
 }

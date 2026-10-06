@@ -4,7 +4,7 @@ Catatan progres, temuan sementara, gap, dan keputusan. Aturan rekayasa ada di
 `AGENTS.md`, aturan desain di `DESIGN.md`, dan spesifikasi produk di
 `blueprint.md`. File ini hanya mencatat keadaan kerja.
 
-Terakhir diperbarui: 6 Oktober 2026.
+Terakhir diperbarui: 7 Oktober 2026.
 
 ---
 
@@ -15,7 +15,10 @@ dan **terverifikasi lewat lint, typecheck, unit test, build, dan render nyata**.
 Fase 3, 4, dan 5 (anggota, profil, portofolio, sosial, pengaturan, jadwal,
 event, tugas) **selesai**. Yang tersisa: hardening/rilis Fase 7.
 
-Pekerjaan ini ada di working tree lokal. Belum ada commit, belum ada push.
+Perubahan A-06 (antrean permintaan ganti kata sandi) sudah masuk commit
+`e731177` di `main`, dan `git branch -vv` tidak menunjukkan selisih dengan
+`origin/main`. Perbaikan bug `<form>` bersarang sesudahnya (lihat bagian antrean
+ganti kata sandi) masih **lokal di working tree**, belum di-commit.
 
 ---
 
@@ -863,6 +866,210 @@ Tombolnya juga masuk galeri state `/dev/ui`, seperti primitive lain.
 
 ---
 
+## Antrean permintaan ganti kata sandi (6–7 Oktober 2026)
+
+Permintaan Knotus: "fitur lupa password". Di kelas ini "lupa kata sandi" tidak
+bisa berarti tautan reset mandiri: tidak ada email delivery di free tier
+(A-05), jadi tautannya tetap harus dikirim Ketua lewat WhatsApp — pola yang sama
+dengan undangan anggota. Yang belum ada adalah tempat bagi anggota untuk
+memberi tahu, dan bagi Ketua untuk melihat siapa yang meminta.
+
+### Kenapa antrean, bukan form reset
+
+Form reset mandiri butuh email keluar. Karena itu tidak ada, yang dipakai adalah
+antrean persetujuan:
+
+1. Anggota menekan "Lupa kata sandi?" di `/login`, mengisi email, lalu mengirim
+   permintaan. Tidak ada email yang dikirim ke siapa pun di langkah ini.
+2. Permintaan muncul di beranda Ketua sebagai section "Permintaan ganti kata
+   sandi".
+3. Ketua menekan "Buat tautan". Tautan sekali pakai terbit saat itu juga dan
+   ditampilkan **sekali**; Ketua menyalinnya dan mengirimkannya lewat WhatsApp.
+4. Anggota membuka tautan itu: `/auth/confirm` memverifikasi token dari fragment
+   URL, lalu `/set-password` menentukan kata sandi baru. Jalurnya sama persis
+   dengan aktivasi akun, hanya `type`-nya `recovery`.
+
+Token tidak pernah menyentuh tabel antrean. Barisnya hanya mencatat *siapa* yang
+meminta, bukan kredensialnya.
+
+### Model data
+
+`supabase/migrations/20261006130000_password_reset_requests.sql` (migration
+0011, **sudah diterapkan** ke project Supabase — `npx supabase migration list`
+menampilkan `20261006130000` di kolom Local maupun Remote).
+
+Tabel `public.password_reset_requests`: `id`, `class_id` (FK cascade), `email`,
+`status` (`pending` / `issued`, default `pending`), `created_at`, `issued_at`.
+
+Tiga penjaga di level database:
+
+- `check (email = lower(email) and length(email) between 3 and 254)` — bentuk yang
+  tersimpan selalu bisa dibandingkan dengan email di Auth.
+- `check ((status = 'issued') = (issued_at is not null))` — `issued_at` terisi
+  tepat saat tautan terbit, tidak sebelum dan tidak sesudah.
+- Unique index parsial `(class_id, email) where status = 'pending'` — satu
+  permintaan terbuka per email per kelas, jadi spam tidak menumpuk dan Ketua
+  tidak melihat email yang sama berulang kali.
+
+Trigger `app.password_reset_requests_guard` menolak perubahan `class_id` /
+`email` / `created_at` (`EC030`), menolak membuka lagi baris yang sudah `issued`
+(`EC021`), dan mengisi `issued_at` dengan `now()` database — bukan jam mesin
+klien (§9: satu sumber waktu).
+
+GRANT sengaja sempit: `select` dan `update (status)` untuk `authenticated`,
+**tanpa INSERT untuk `anon`** dan **tanpa policy DELETE**. Permintaan masuk lewat
+Server Action yang memakai service role (`class_id` selalu berasal dari server,
+bukan dari isian form), dan antrean sekaligus menjadi jejak audit yang tidak
+bisa dihapus dari UI (§7.9). RLS membatasi baca dan tulis ke
+`app.has_permission(class_id, 'members.manage')`.
+
+### Yang berubah di aplikasi
+
+| File | Isi |
+|---|---|
+| `supabase/migrations/20261006130000_password_reset_requests.sql` | tabel, index, RLS, trigger |
+| `src/features/auth/actions.ts` | `requestPasswordReset`, `issuePasswordResetLink` |
+| `src/features/auth/queries.ts` | `getResetRequests` (React `cache`, server-only) |
+| `src/features/auth/schemas.ts` | `resetRequestSchema` |
+| `src/features/auth/components/ForgotPasswordForm.tsx` | panel "Lupa kata sandi?" di `/login` |
+| `src/features/auth/components/ResetRequestQueue.tsx` | baris antrean + tombol "Buat tautan" |
+| `src/features/auth/components/ResetRequestSlot.tsx` | slot beranda, gate `members.manage` |
+| `src/features/auth/components/LoginForm.tsx` | panel dipasang sebagai saudara form login (lihat bug di bawah) |
+| `src/app/(app)/page.tsx` | memasang slot di beranda di dalam `Suspense` |
+| `src/lib/supabase/database.types.ts` | tipe `PasswordResetRequest` |
+| `tests/unit/auth-schemas.test.ts` | 5 tes `resetRequestSchema` |
+
+Antrean hanya dirender untuk viewer dengan `members.manage`, dan section-nya
+tidak muncul sama sekali kalau antreannya kosong. `getResetRequests` mengambil
+baris `pending` dan baris `issued` yang terbit kurang dari satu jam terakhir saja
+(batas 20 baris). Baris `issued` sengaja tetap terlihat selama itu supaya Ketua
+masih sempat menyalin tautan yang baru terbit; sesudahnya jejaknya tetap ada di
+tabel tapi tidak lagi mengganggu beranda. Permintaan `pending` yang menggantung
+lebih dari 30 hari juga tidak lagi ditampilkan.
+
+### Bug yang ditemukan dan diperbaiki: `<form>` bersarang
+
+`ForgotPasswordForm` awalnya dipasang **di dalam** `<form>` login. Dua `<form>`
+yang bersarang bukan HTML yang sah, dan akibatnya nyata — bukan kosmetik:
+
+- React mencatat `In HTML, <form> cannot be a descendant of <form>. This will
+  cause a hydration error.`
+- Tombol "Kirim permintaan" tidak pernah menjalankan Server Action-nya. Form
+  dalamnya tetap membawa `action="javascript:throw new Error('A React form was
+  unexpectedly submitted…')"` dan browser mencoba mengirim data ke URL itu, jadi
+  tidak ada permintaan yang tercatat. Artinya seluruh alur A-06 tidak berfungsi
+  dari sisi pengguna, walau lint, typecheck, tes, dan build semuanya hijau.
+
+Perbaikannya: `LoginForm` sekarang mengembalikan `<div className="flex flex-col
+gap-4">` yang berisi `<form>` login dan `<ForgotPasswordForm />` sebagai
+**saudara**, bukan anak — pola yang sudah dipakai `EditTaskForm`,
+`EditEventForm`, `EditScheduleForm`, dan `MembersManager`. Jarak visualnya tidak
+berubah.
+
+### Verifikasi
+
+- `lint`, `typecheck`, `test` (**13 file, 161 tes**), `check:tokens`,
+  `check:boundaries`, dan `build` (26 route): semua keluar 0 pada tree setelah
+  perbaikan.
+- `npx supabase migration list`: `20261006130000` ada di kolom Local dan Remote.
+- **30 cek Chrome** (Playwright sementara di atas Chrome yang terpasang, dihapus
+  setelah dipakai) terhadap dev server di `http://localhost:3000`, semuanya
+  lulus:
+  - Panel tertutup saat awal (`aria-expanded="false"`, `#reset-email` tidak ada
+    di DOM), terbuka setelah diklik, `aria-controls` menunjuk elemen yang benar,
+    dan tertutup lagi saat diklik ulang.
+  - Tidak ada `<form>` di dalam `<form>` setelah perbaikan
+    (`formsNestedInForms: 0`), dan peringatan hidrasi React tidak muncul lagi:
+    3 kemunculan di log server sebelum perbaikan, tetap 3 sesudah — tidak ada
+    tambahan.
+  - Server Action benar-benar berjalan. Email `a@b` ditolak validasi server dan
+    field-nya bertanda `aria-invalid`, tanpa form login ikut terkirim; email
+    bukan anggota ditolak dengan pesan "belum terdaftar sebagai anggota kelas
+    ini". Log server mencatat `requestPasswordReset` dieksekusi (579 ms) dan
+    emailnya **tidak** ikut tercatat.
+  - Toggle bisa dicapai dengan `Tab` dari field email dan fokusnya terlihat
+    (`outline` 3 px).
+  - `axe-core` pada halaman yang panelnya terbuka: **0 pelanggaran**.
+  - Lebar 375 px: tanpa overflow horizontal (`overflow=0px`), field muat di
+    dalam viewport (259 px), tombol kirim setinggi 44 px.
+  - `/auth/confirm#token_hash=…&type=recovery`: tombol "Lanjutkan" aktif dengan
+    fragment lengkap, token tidak ada di HTML yang dirender server, token palsu
+    ditolak dengan pesan "Tautan ini tidak berlaku lagi" tanpa redirect dan tanpa
+    crash, fragment dibersihkan setelah submit, dan tipe `recovery` diterima
+    (bukan pesan "jenis tautan tidak dikenali").
+
+### Yang TIDAK terverifikasi
+
+- **Sisi Ketua.** Antrean di beranda, tombol "Buat tautan", dan kotak tautan
+  sekali pakai tidak diuji di peramban: butuh sesi Ketua, dan menerbitkan tautan
+  sungguhan akan membuat kredensial nyata di database produksi. Yang terbukti
+  hanyalah sisi database (migration sudah diterapkan) dan sisi anggota (di atas).
+- **Jalur sukses permintaan.** Tidak dijalankan supaya tidak menulis baris nyata
+  ke database produksi. Yang diuji hanya jalur tolak (email bukan anggota) dan
+  jalur validasi.
+- **Konsumsi tautan hasil `generateLink`.** Token asli tidak pernah dipakai
+  sampai `/set-password`, jadi rantai penuh "terbitkan tautan → buka → verifikasi
+  → tentukan kata sandi" belum pernah dijalankan ujung ke ujung.
+- Bug `<form>` bersarang **tidak bisa ditangkap tes unit**: vitest berjalan di
+  lingkungan `node` tanpa jsdom, dan panelnya tertutup pada render awal sehingga
+  markup statis pun tidak akan memperlihatkan form dalam itu. Penjaga yang tepat
+  adalah e2e Playwright (Fase 7), yang memang belum ada.
+
+### Keputusan: pesan "belum terdaftar" yang eksplisit
+
+`requestPasswordReset` menjawab dengan pesan eksplisit bahwa email itu belum
+terdaftar sebagai anggota kelas ini, bukan pesan generik "kalau emailmu terdaftar,
+permintaanmu dicatat". Knotus memintanya supaya anggota yang salah mengetik atau
+memang belum diundang tahu apa yang harus dilakukan. Konsekuensinya form ini bisa
+dipakai untuk memeriksa apakah sebuah alamat email punya akun di kelas ini —
+sebuah *membership oracle*.
+
+Yang membatasi: Server Action ini **tidak punya rate limit**, jadi enumerasi
+secara teknis bisa dilakukan selama pemanggilnya menebak alamat yang benar; yang
+mahal hanyalah jalur penolakan karena ia memanggil `auth.admin.listUsers`. Pesan
+pada form login sendiri tetap generik (§23), jadi oracle ini hanya ada di jalur
+lupa kata sandi. Kalau risikonya dianggap terlalu besar, gantinya adalah satu
+pesan generik di `actions.ts`; belum diambil supaya perilaku yang diminta Knotus
+tetap utuh.
+
+### Catatan
+
+- Permintaan berulang ditangani lebih dulu: kalau sudah ada baris `pending` untuk
+  email itu, aksi menjawab sukses tanpa memanggil Auth lagi — sekaligus membatasi
+  biaya endpoint anonim yang bisa diulang. Bentrok `23505` dari dua tab yang
+  mengirim bersamaan juga diperlakukan sebagai sukses.
+- `issuePasswordResetLink` memakai `update … .eq('status', 'pending')` sebagai
+  syarat kedua, jadi dua tab yang menekan "Buat tautan" bersamaan hanya
+  menghasilkan satu tautan yang benar-benar tercatat.
+
+---
+
+## Kartu "Halaman publik kelas" dihapus dari beranda (7 Oktober 2026)
+
+Permintaan Knotus: hapus kartu penjelasan di beranda publik yang berisi judul
+"Halaman publik kelas", kalimat "Jadwal, tugas, event, dan daftar anggota hanya
+bisa dibaca anggota kelas…", dan tombol "Masuk ke akunmu".
+
+Blok itu di `src/app/(app)/page.tsx` hanya dirender untuk `!viewer.isSignedIn`,
+jadi yang berubah hanya tampilan pengunjung anonim: beranda sekarang langsung
+dibuka identitas kelas tanpa penjelasan di atasnya. Blok "Kelola kelas" untuk
+pengelola tidak disentuh.
+
+- Tombol masuk tidak ikut hilang — `TopBar` sudah punya tombol "Masuk" sendiri
+  untuk pengunjung tanpa sesi, dan itu pintu masuk yang tersisa di beranda.
+- Konsekuensinya, alasan kenapa isi beranda sedikit (jadwal, tugas, dan event
+  hanya untuk anggota) tidak lagi dijelaskan di halaman. Itu konsekuensi yang
+  disadari, bukan kehilangan yang tak terduga — bagian "Kenapa beranda
+  pengunjung kosong" di atas tetap menjelaskan latar belakangnya.
+
+Verifikasi: `lint`, `typecheck`, `test` (13 file, 161 tes), `check:tokens`,
+`check:boundaries`, dan `build` semuanya keluar 0; `GET /` sebagai anonim
+(HTTP 200) tidak lagi memuat ketiga teks kartu itu, sementara tautan
+`href="/login"` milik TopBar dan hero identitas kelas tetap dirender, tanpa
+penanda error.
+
+---
+
 ## Desain Stitch vs blueprint
 
 Ekspor Stitch tersedia di `stitch_ui_system/` (16 layar + `DESIGN.md` sistem
@@ -1159,6 +1366,7 @@ yang di-generate:
 | T-09 | `npm run bootstrap` / `npm run seed` memakai `--env-file=.env --env-file-if-exists=.env.local` | `node` biasa tidak memuat `.env` seperti Next.js; tanpa ini skrip selalu gagal dengan "env belum diisi". |
 | T-10 | `setPassword` mengarahkan anggota `invited` ke `/settings/profile?onboarding=1` sesuai blueprint §6.2, walau halamannya belum ada (Fase 4) | Konsekuensi: setelah aktivasi lewat tautan bootstrap, pengguna mendarat di 404 sampai Fase 4 selesai. Tautan kembali ke beranda tersedia dari halaman `not-found`. |
 | T-11 | `npm run db:types` memakai `scripts/gen-db-types.mjs`, bukan `supabase gen types > file` | Redirection shell memotong file tujuan SEBELUM perintah berjalan. Tanpa Docker/access token, `supabase gen types` pasti gagal dan meninggalkan `database.types.ts` **0 byte** — persis kejadian yang menewaskan file tipe 10 KB di sesi ini. Skrip baru menulis ke memory dulu dan hanya menimpa bila perintah keluar 0 dan hasilnya tidak kosong. |
+| T-12 | `requestPasswordReset` menjawab eksplisit "email belum terdaftar", bukan pesan generik (diminta Knotus) | Form lupa kata sandi jadi *membership oracle*: siapa pun bisa memeriksa apakah satu alamat email punya akun di kelas ini, dan aksi ini belum punya rate limit. Pesan form login tetap generik (§23). Risiko dan alternatifnya dicatat di bagian antrean ganti kata sandi. |
 
 ---
 
@@ -1171,6 +1379,9 @@ disembunyikan:
 - Fase 4: **selesai.**
 - Fase 5: **selesai.**
 - Fase 7: audit a11y & responsif, e2e Playwright, `/api/health`, runbook rilis.
+  Bug `<form>` bersarang (7 Oktober 2026) adalah alasan konkret kenapa e2e
+  Playwright dibutuhkan: kelas bug itu tidak terlihat oleh lint, typecheck, tes
+  unit, maupun build.
 - `scripts/seed-fixtures.ts`.
 - Tes pgTAP (butuh Docker) dan Playwright e2e.
 
@@ -1186,3 +1397,6 @@ Belum dijalankan. Yang harus diperiksa setelah deploy dan dicatat di file ini:
 - [ ] Cron `/api/health` menjawab 200 dengan Bearer dan 401 tanpa.
 - [ ] Upload gambar berfungsi dan path Storage privat.
 - [ ] Waktu tampil pada timezone kelas, bukan timezone browser.
+- [ ] Antrean ganti kata sandi: permintaan dari `/login` muncul di beranda
+      Ketua, tombol "Buat tautan" menerbitkan tautan, dan tautan itu sampai ke
+      `/set-password`.
