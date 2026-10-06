@@ -4,6 +4,7 @@ import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserId } from '@/lib/visibility/server';
 import { USERNAME } from '@/lib/validation';
+import type { MembershipStatus } from '@/lib/supabase/database.types';
 
 /**
  * Baris profil milik viewer sendiri.
@@ -40,6 +41,8 @@ export type MemberSummary = {
   /** NULL bukan berarti tidak ada avatar, melainkan tidak terlihat oleh viewer ini. */
   avatar_path: string | null;
   joined_at: string | null;
+  /** `invited` = belum pernah memakai tautan akses, jadi belum bisa masuk. */
+  status: MembershipStatus;
 };
 
 /**
@@ -55,7 +58,7 @@ export const getMembers = cache(async (): Promise<MemberSummary[]> => {
 
   const { data, error } = await supabase
     .from('member_profile_v')
-    .select('user_id, username, full_name, role_name, avatar_path, joined_at')
+    .select('user_id, username, full_name, role_name, avatar_path, joined_at, status')
     .order('full_name', { ascending: true })
     .limit(100);
 

@@ -451,8 +451,6 @@ export async function deleteMember(_prev: FormState, fd: FormData): Promise<Form
 
 export type ManagedMember = MemberSummary & {
   email: string | null;
-  /** True bila akun sedang diblokir di sisi Auth. */
-  banned: boolean;
   /**
    * Signed URL avatar, diisi oleh halaman server. Disimpan terpisah dari
    * `avatar_path` supaya tabel klien tidak pernah menyentuh Storage.
@@ -483,23 +481,13 @@ export const getManagedMembers = cache(async (): Promise<ManagedMember[]> => {
 
   if (error) {
     console.error('[member] gagal membaca daftar user Auth', { message: error.message });
-    return members.map((m) => ({ ...m, email: null, banned: false }));
+    return members.map((m) => ({ ...m, email: null }));
   }
 
-  const byId = new Map(
-    (userList.users ?? []).map((u) => [
-      u.id,
-      {
-        email: u.email ?? null,
-        // `banned_until` berupa tanggal; akun tanpa nilai itu tidak diblokir.
-        banned: typeof u.banned_until === 'string' && u.banned_until.length > 0,
-      },
-    ]),
-  );
+  const emailById = new Map((userList.users ?? []).map((u) => [u.id, u.email ?? null]));
 
   return members.map((m) => ({
     ...m,
-    email: byId.get(m.user_id)?.email ?? null,
-    banned: byId.get(m.user_id)?.banned ?? false,
+    email: emailById.get(m.user_id) ?? null,
   }));
 });

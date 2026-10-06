@@ -46,9 +46,12 @@ export const NAV_ITEMS = [
   { href: '/events', label: 'Event', key: 'page.events' },
   { href: '/tasks', label: 'Tugas', key: 'page.tasks' },
   { href: '/members', label: 'Anggota', key: 'page.members' },
-  { href: '/class', label: 'Kelas', key: 'page.class_about' },
+  // Tidak ada entri "Kelas": Permintaan Knotus — halaman kelas berisi
+  // pengaturan kelas, bukan halaman bacaan, dan yang ditampilkan ke pengunjung
+  // lewat sidebar adalah beranda. `page.class_about` tetap jadi kunci
+  // visibilitas untuk `/class`, hanya tidak lagi punya item navigasi.
   // `as const` menjaga key tetap literal supaya `NavKey` di bawah hanya berisi
-  // enam key navigasi, bukan seluruh 27 key visibility. `satisfies` tetap
+  // lima key navigasi, bukan seluruh key visibility. `satisfies` tetap
   // memverifikasi tiap item cocok dengan bentuk `NavItem`.
 ] as const satisfies readonly NavItem[];
 

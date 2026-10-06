@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { requireView } from '@/lib/visibility/server';
+import { getViewer, requireView } from '@/lib/visibility/server';
 import { getMembers } from '@/features/member/queries';
 import { createClient } from '@/lib/supabase/server';
 import { signMany } from '@/lib/storage/sign';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { PageHeader, Section } from '@/components/ui/Section';
 import { EmptyState } from '@/components/ui/States';
+import { ButtonLink } from '@/components/ui/Button';
 import { formatDateTime } from '@/lib/time';
 import { getClassIdentity } from '@/features/class/queries';
 
@@ -25,10 +26,11 @@ export const dynamic = 'force-dynamic';
 export default async function MembersPage() {
   await requireView('page.members', '/members');
 
-  const [members, identity, supabase] = await Promise.all([
+  const [members, identity, supabase, viewer] = await Promise.all([
     getMembers(),
     getClassIdentity(),
     createClient(),
+    getViewer(),
   ]);
   const timezone = identity?.timezone ?? 'Asia/Jakarta';
 
@@ -46,7 +48,19 @@ export default async function MembersPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Anggota"
-        description="Anggota kelas yang aktif beserta peran dan waktu bergabung."
+        description={
+          viewer.can('members.manage')
+            ? 'Daftar anggota kelas beserta peran dan waktu bergabung. Undang atau hapus anggota lewat tombol di kanan.'
+            : 'Anggota kelas yang aktif beserta peran dan waktu bergabung.'
+        }
+        // Tombol hanya untuk pengelola: mengundang, menonaktifkan, atau menghapus
+        // anggota butuh members.manage, jadi menampilkannya ke semua orang
+        // hanya janji yang tidak bisa ditepati (§7.8).
+        action={
+          viewer.can('members.manage') ? (
+            <ButtonLink href="/settings/members">Kelola anggota</ButtonLink>
+          ) : undefined
+        }
       />
 
       {members.length === 0 ? (

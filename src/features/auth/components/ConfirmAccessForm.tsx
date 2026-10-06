@@ -63,7 +63,16 @@ export function ConfirmAccessForm() {
       onSubmit={() => {
         if (!fromUrl.tokenHash) return;
         setSent(fromUrl);
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        // Bersihkan fragment tanpa menghapus state internal router Next: entri
+        // history ini menyimpan `__PRIVATE_NEXTJS_INTERNALS_TREE` yang dipakai
+        // router untuk menerapkan navigasi. Menggantinya dengan `null` membuat
+        // `redirect()` dari Server Action tidak pernah sampai (bug aktivasi
+        // 6 Oktober 2026), jadi state lama diteruskan apa adanya.
+        window.history.replaceState(
+          window.history.state,
+          '',
+          window.location.pathname + window.location.search,
+        );
       }}
       className="flex flex-col gap-4"
     >

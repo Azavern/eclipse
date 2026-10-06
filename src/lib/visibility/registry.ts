@@ -348,3 +348,68 @@ export function ceilingNote(
   if (effective === choice) return null;
   return `Dibatasi halaman ${VISIBILITY_BY_KEY[ceiling].label}: hanya ${labelFor(effective)}.`;
 }
+
+/**
+ * Effective audience untuk `key` bila pilihan `choices` yang dipakai — dipakai
+ * editor untuk mempratinjau pilihan yang BELUM disimpan.
+ *
+ * Cermin dari `app.effective_audience` di database: nilai milik sendiri, lalu
+ * dipangkas `widest_audience`, lalu dipangkas plafon page induk. Bedanya hanya
+ * satu: untuk key yang sedang diubah, pilihan baru ikut dipakai; untuk yang
+ * lain, nilai tersimpan dari peta.
+ *
+ * Fungsi murni, dan TIDAK menggantikan database sebagai sumber kebenaran.
+ * Begitu form tersimpan, peta dari `get_visibility_map` yang berlaku — bukan
+ * hasil fungsi ini.
+ */
+function effectiveWith(
+  map: Record<VisibilityKey, VisibilityEntry>,
+  key: VisibilityKey,
+  choices: Partial<Record<VisibilityKey, string>>,
+): Audience {
+  const choice = choices[key];
+  const parent = VISIBILITY_BY_KEY[key].parent as VisibilityKey | undefined;
+  const parentChoice = parent ? choices[parent] : undefined;
+
+  // Aturan milik key itu sendiri menang. Kalau tidak ada, aturan parent yang
+  // sedang diubah juga berlaku, karena section mewarisi page-nya.
+  const own =
+    choice && choice !== ALLOW_DEFAULT
+      ? (choice as Audience)
+      : parentChoice && parentChoice !== ALLOW_DEFAULT
+        ? (parentChoice as Audience)
+        : (map[key]?.own ?? 'class_admin');
+
+  const capped = narrower(own, WIDEST_AUDIENCE[key]);
+  const page = pageCeiling(key);
+  if (!page) return capped;
+  return narrower(capped, effectiveWith(map, page, choices));
+}
+
+/**
+ * Apa yang dilihat pengunjung **tanpa login**, untuk setiap key.
+ *
+ * Di database `audience_allows('public')` selalu bernilai true, jadi
+ * pengunjung tanpa login melihat sebuah bagian kalau dan hanya kalau
+ * effective audience-nya `public`. Inilah yang menjawab pertanyaan yang paling
+ * sering muncul di pengaturan: "kenapa beranda saya masih kosong buat
+ * pengunjung?".
+ *
+ * Section Home yang mengambil data dari halaman lain juga mensyaratkan page
+ * sumbernya terlihat, persis seperti `canShow` di server (E7).
+ */
+export function publicVisibility(
+  map: Record<VisibilityKey, VisibilityEntry>,
+  choices: Partial<Record<VisibilityKey, string>> = {},
+): Record<VisibilityKey, boolean> {
+  const out = {} as Record<VisibilityKey, boolean>;
+
+  for (const key of VISIBILITY_KEYS) {
+    const self = effectiveWith(map, key, choices) === 'public';
+    const dataSource = VISIBILITY_BY_KEY[key].dataSource as VisibilityKey | undefined;
+    const sourceOk = dataSource ? effectiveWith(map, dataSource, choices) === 'public' : true;
+    out[key] = self && sourceOk;
+  }
+
+  return out;
+}

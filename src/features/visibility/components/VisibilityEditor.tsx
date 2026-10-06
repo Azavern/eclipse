@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { saveClassVisibility } from '@/features/visibility/actions';
 import {
   ALLOW_DEFAULT,
@@ -10,6 +11,7 @@ import {
   ceilingNote,
   CLASS_SCOPE_KEYS,
   GROUP_ORDER,
+  publicVisibility,
   VISIBILITY_BY_KEY,
   WIDEST_AUDIENCE,
   type Audience,
@@ -37,11 +39,18 @@ function pickKnownKeys(values: Record<string, string>, fallback: SelectionMap): 
  * Editor visibilitas kelas.
  *
  * Satu select per key. Nilai kosong = pakai bawaan katalog; daftar opsi sudah
- * dibatasi `allowedAudiences(key)` sehingga Ketua tidak pernah offered audience
+ * dibatasi `allowedAudiences(key)` sehingga Ketua tidak pernah diberi audience
  * yang lebih luas dari yang schema izinkan.
- * * Setiap pilihan langsung menampilkan penjelasan kalau masih dipangkas plafon
- * halaman induk. Perhitungan itu memakai fungsi `ceilingNote` yang sama dengan
- * yang dipakai server — bukan implementasi terpisah yang bisa berbeda.
+ *
+ * Setiap pilihan menampilkan **dua** penjelasan:
+ *  - plafon halaman induk (`ceilingNote`), dan
+ *  - akibatnya bagi pengunjung tanpa login (`publicVisibility`).
+ *
+ * Yang kedua adalah jawaban langsung atas pertanyaan yang paling sering muncul
+ * di pengaturan: "kenapa beranda saya masih kosong buat pengunjung?". Kenapa
+ * diperlukan: `section.home.*` mewarisi aturan page-nya sendiri, jadi membuka
+ * satu section saja tidak cukup untuk membuat apa pun tampak — page sumbernya
+ * juga harus terbuka. Tanpa pratinjau, itu harus ditebak.
  */
 export function VisibilityEditor({
   initial,
@@ -60,6 +69,10 @@ export function VisibilityEditor({
 
   const fieldErrors = state && !state.ok ? state.error.fieldErrors : undefined;
 
+  // Dihitung ulang setiap kali pilihan berubah, jadi tidak perlu disimpan dulu
+  // untuk tahu apa yang akan dilihat pengunjung tanpa login.
+  const publicView = publicVisibility(map, selection);
+
   const groups = GROUP_ORDER.map((group) => ({
     group,
     keys: CLASS_SCOPE_KEYS.filter((key) => VISIBILITY_BY_KEY[key].group === group),
@@ -74,9 +87,30 @@ export function VisibilityEditor({
     return ceilingNote(key, chosen as Audience, map);
   };
 
+  // Ringkasan di atas form: berapa bagian yang benar-benar terlihat oleh
+  // pengunjung tanpa login, bukan hanya berapa select yang berisi "publik".
+  const publicKeys = CLASS_SCOPE_KEYS.filter((key) => publicView[key]);
+  const publicPages = CLASS_SCOPE_KEYS.filter(
+    (key) => publicView[key] && VISIBILITY_BY_KEY[key].kind === 'page',
+  ).map((key) => VISIBILITY_BY_KEY[key].label);
+
   return (
     <form action={action} className="flex flex-col gap-8">
       <FormStatus state={state} successMessage="Aturan visibilitas kelas tersimpan." />
+
+      <div className="rounded-md border border-border-subtle px-4 py-3">
+        <p className="text-body font-semibold text-text">Tampilan pengunjung tanpa login</p>
+        <p className="text-small text-text-muted">
+          {publicKeys.length === 0
+            ? 'Belum ada apa pun yang terlihat pengunjung. Mereka hanya melihat nama kelas.'
+            : `${publicKeys.length} bagian terbuka untuk umum. Halaman yang bisa dibuka: ${
+                publicPages.length > 0 ? publicPages.join(', ') : 'belum ada'
+              }.`}
+        </p>
+        <p className="text-small text-text-muted">
+          Mengubah select di bawah memperbarui hitungan ini secara langsung, sebelum disimpan.
+        </p>
+      </div>
 
       {groups.map(({ group, keys }) => (
         <section key={group} className="flex flex-col gap-4">
@@ -87,6 +121,7 @@ export function VisibilityEditor({
               const meta = VISIBILITY_BY_KEY[key];
               const options = allowedAudiences(key);
               const note = noteFor(key);
+              const isPublic = publicView[key];
 
               return (
                 <FormField
@@ -102,26 +137,40 @@ export function VisibilityEditor({
                   error={errorFor(key)}
                 >
                   {(describedBy) => (
-                    <Select
-                      id={inputId(key)}
-                      name={inputId(key)}
-                      value={selection[key]}
-                      describedBy={describedBy}
-                      invalid={Boolean(errorFor(key))}
-                      onChange={(event) =>
-                        setSelection((prev) => ({ ...prev, [key]: event.target.value }))
-                      }
-                    >
-                      <option value={ALLOW_DEFAULT}>
-                        Bawaan katalog ({WIDEST_AUDIENCE[key]} —{' '}
-                        {AUDIENCE_LABEL[WIDEST_AUDIENCE[key]]})
-                      </option>
-                      {options.map((audience) => (
-                        <option key={audience} value={audience}>
-                          {AUDIENCE_LABEL[audience]}
+                    <>
+                      <Select
+                        id={inputId(key)}
+                        name={inputId(key)}
+                        value={selection[key]}
+                        describedBy={describedBy}
+                        invalid={Boolean(errorFor(key))}
+                        onChange={(event) =>
+                          setSelection((prev) => ({ ...prev, [key]: event.target.value }))
+                        }
+                      >
+                        <option value={ALLOW_DEFAULT}>
+                          Bawaan katalog ({WIDEST_AUDIENCE[key]} —{' '}
+                          {AUDIENCE_LABEL[WIDEST_AUDIENCE[key]]})
                         </option>
-                      ))}
-                    </Select>
+                        {options.map((audience) => (
+                          <option key={audience} value={audience}>
+                            {AUDIENCE_LABEL[audience]}
+                          </option>
+                        ))}
+                      </Select>
+
+                      {/* Ikon + teks, bukan hanya warna (§17.7). */}
+                      <p className="mt-1 flex items-center gap-1 text-caption text-text-muted">
+                        {isPublic ? (
+                          <Eye aria-hidden="true" className="size-3.5" />
+                        ) : (
+                          <EyeOff aria-hidden="true" className="size-3.5" />
+                        )}
+                        {isPublic
+                          ? 'Tampak untuk pengunjung tanpa login'
+                          : 'Tersembunyi dari pengunjung tanpa login'}
+                      </p>
+                    </>
                   )}
                 </FormField>
               );

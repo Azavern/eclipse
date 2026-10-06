@@ -148,7 +148,15 @@ function MemberRow({ member, isSelf }: { member: ManagedMember; isSelf: boolean 
   const [deleteState, deleteAction] = useActionState(deleteMember, null);
   const [confirming, setConfirming] = useState(false);
 
-  const isActive = !member.banned;
+  // Status keanggotaan, bukan status ban di Auth: anggota yang sudah diundang
+  // tetapi belum memakai tautan akses belum aktif — dan memang belum dibanned.
+  const isActive = member.status === 'active';
+  const statusLabel =
+    member.status === 'active'
+      ? 'Aktif'
+      : member.status === 'invited'
+        ? 'Menunggu aktivasi'
+        : 'Tidak aktif';
 
   return (
     <tr className="border-t border-border-subtle">
@@ -166,18 +174,28 @@ function MemberRow({ member, isSelf }: { member: ManagedMember; isSelf: boolean 
       </td>
       <td className="py-3 pe-3 align-middle text-small text-text-muted">{member.email ?? '—'}</td>
       <td className="py-3 pe-3 align-middle text-small text-text-muted">{member.role_name}</td>
-      <td className="py-3 align-middle text-small">{isActive ? 'Aktif' : 'Tidak aktif'}</td>
+      <td className="py-3 align-middle text-small">{statusLabel}</td>
       <td className="py-3 text-end align-middle">
         <div className="flex flex-wrap justify-end gap-2">
-          <form action={statusAction}>
-            <input type="hidden" name="user_id" value={member.user_id} />
-            <input type="hidden" name="next" value={isActive ? 'inactive' : 'active'} />
-            {/* `SubmitButton` mengikuti status form: nonaktif + spinner selama
-                aksi berjalan, jadi klik ganda tidak mungkin terjadi. */}
-            <SubmitButton variant="secondary" pendingLabel="Menyimpan…" disabled={isSelf && isActive}>
-              {isActive ? 'Nonaktifkan' : 'Aktifkan'}
-            </SubmitButton>
-          </form>
+          {/* `invited` tidak punya transisi dari sini: satu-satunya jalur ke
+              `active` adalah tautan akses yang dipakai anggota itu sendiri (§6.4). */}
+          {member.status === 'invited' ? (
+            <p className="text-small text-text-muted">Menunggu anggota memakai tautan akses.</p>
+          ) : (
+            <form action={statusAction}>
+              <input type="hidden" name="user_id" value={member.user_id} />
+              <input type="hidden" name="next" value={isActive ? 'inactive' : 'active'} />
+              {/* `SubmitButton` mengikuti status form: nonaktif + spinner selama
+                  aksi berjalan, jadi klik ganda tidak mungkin terjadi. */}
+              <SubmitButton
+                variant="secondary"
+                pendingLabel="Menyimpan…"
+                disabled={isSelf && isActive}
+              >
+                {isActive ? 'Nonaktifkan' : 'Aktifkan'}
+              </SubmitButton>
+            </form>
+          )}
 
           <Button
             type="button"

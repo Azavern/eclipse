@@ -65,10 +65,10 @@ const GROUPS: SettingsGroup[] = [
     description: 'Tampilan dan isi kelas. Hanya untuk pengelola kelas.',
     entries: [
       {
-        href: '/settings/class',
+        href: '/class',
         title: 'Identitas kelas',
         purpose:
-          'Nama, kode, tagline, deskripsi, sorotan, zona waktu, logo, cover, dan tautan kontak kelas.',
+          'Nama, kode, tagline, deskripsi, sorotan, zona waktu, logo, cover, dan tautan kontak kelas. Halamannya ada di luar Pengaturan karena isinya adalah tampilan kelas itu sendiri.',
         permission: 'class.manage',
       },
       {
@@ -88,7 +88,7 @@ const GROUPS: SettingsGroup[] = [
         href: '/settings/visibility',
         title: 'Aturan visibilitas',
         purpose:
-          'Tentukan siapa boleh membuka tiap halaman dan melihat tiap bagian. Aturan kelas selalu menjadi batas terluar di atas aturan pribadi anggota.',
+          'Tentukan siapa boleh membuka tiap halaman dan melihat tiap bagian, lengkap dengan pratinjau apa yang dilihat pengunjung tanpa login. Aturan kelas selalu menjadi batas terluar di atas aturan pribadi anggota.',
         permission: 'class.manage',
       },
       {

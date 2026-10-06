@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { requireView, canShow } from '@/lib/visibility/server';
+import { getViewer, requireView, canShow } from '@/lib/visibility/server';
 import { getClassIdentity, getClassTheme } from '@/features/class/queries';
 import { HOME_LAYOUTS, mobileOrderClass } from '@/features/home/layouts';
 import { HomeHero } from '@/features/home/components/HomeSections';
@@ -10,6 +10,8 @@ import {
   UpcomingSlot,
 } from '@/features/home/components/HomeSlots';
 import { SectionBoundary } from '@/components/ui/SectionBoundary';
+import { Section } from '@/components/ui/Section';
+import { ButtonLink } from '@/components/ui/Button';
 import {
   SkeletonActivity,
   SkeletonAvatarStrip,
@@ -38,7 +40,11 @@ export const dynamic = 'force-dynamic';
 export default async function HomePage() {
   await requireView('page.home', '/');
 
-  const [identity, theme] = await Promise.all([getClassIdentity(), getClassTheme()]);
+  const [identity, theme, viewer] = await Promise.all([
+    getClassIdentity(),
+    getClassTheme(),
+    getViewer(),
+  ]);
 
   if (!identity) {
     return (
@@ -115,6 +121,48 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col gap-10">
+      {/*
+        Dua blok yang menjawab "halaman ini untuk apa?" dan "kenapa isinya
+        sedikit?".
+
+        Pengunjung tanpa login melihat identitas kelas saja pada konfigurasi
+        bawaan. Tanpa penjelasan, halaman kosong itu terbaca sebagai situs yang
+        rusak — padahal itu aturan yang sengaja (§7.1, E1).
+
+        Pengelola kelas mendapat pintu masuk ke halaman yang bisa ia ubah.
+        Ditaruh di atas, bukan di bawah, karena halaman ini bisa panjang.
+      */}
+      {!viewer.isSignedIn ? (
+        <div className="rounded-md border border-border-subtle px-4 py-3">
+          <p className="text-body font-semibold text-text">Halaman publik kelas</p>
+          <p className="text-small text-text-muted">
+            Jadwal, tugas, event, dan daftar anggota hanya bisa dibaca anggota kelas. Yang terbuka
+            untuk umum adalah identitas kelas di bawah ini.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <ButtonLink href="/login">Masuk ke akunmu</ButtonLink>
+          </div>
+        </div>
+      ) : null}
+
+      {viewer.can('class.manage') ? (
+        <Section
+          title="Kelola kelas"
+          description="Pintu masuk ke semua halaman yang bisa kamu ubah. Halaman lain di menu samping dipakai untuk melihat dan mengelola isi; pengaturan kelas ada di halaman Kelas."
+        >
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/class">Atur tampilan kelas</ButtonLink>
+            {viewer.can('members.manage') ? (
+              <ButtonLink href="/settings/members" variant="secondary">
+                Kelola anggota
+              </ButtonLink>
+            ) : null}
+            <ButtonLink href="/settings/visibility" variant="secondary">
+              Aturan visibilitas
+            </ButtonLink>
+          </div>
+        </Section>
+      ) : null}
       {sections.map((key) =>
         // `mobileOrderClass` mengatur urutan mobile sesuai PRD; `lg:order-none`
         // mengembalikan desktop ke urutan preset yang dipilih Ketua (§16).

@@ -4,7 +4,7 @@ Catatan progres, temuan sementara, gap, dan keputusan. Aturan rekayasa ada di
 `AGENTS.md`, aturan desain di `DESIGN.md`, dan spesifikasi produk di
 `blueprint.md`. File ini hanya mencatat keadaan kerja.
 
-Terakhir diperbarui: 5 Oktober 2026.
+Terakhir diperbarui: 6 Oktober 2026.
 
 ---
 
@@ -422,6 +422,8 @@ memang tidak ada jalur database yang melewati mesin lokal ini.
 - `listUsers({ perPage: 1000 })` masih seperti adanya.
 - Menguji form end-to-end lewat klik hanya sudah dilakukan untuk **tugas**
   (Chrome + Playwright, lihat bagian "Perbaikan tugas"); form lain belum.
+  (6 Oktober 2026: undangan, aktivasi akun, dan editor visibilitas kini juga
+  sudah diuji lewat klik — lihat dua bagian di bawah.)
 
 ---
 
@@ -438,10 +440,16 @@ konkret halamannya.
 |---|---|---|---|
 | Umum | `/settings/profile` — "Profil saya" | Nama, username, nama panggilan, bio, foto, tautan sosial, portofolio, aturan visibilitas pribadi | sesi + keanggotaan **aktif** |
 | Umum | `/settings/account` — "Akun & kata sandi" | Ganti kata sandi dan keamanan akun | sesi saja (bisa dipakai walau keanggotaan tidak aktif) |
-| Kelas | `/settings/class` — "Identitas kelas" | Nama, kode, tagline, deskripsi, sorotan, zona waktu, logo, cover, tautan kontak | `class.manage` |
+| Kelas | `/class` — "Identitas kelas" | Nama, kode, tagline, deskripsi, sorotan, zona waktu, logo, cover, tautan kontak, plus pratinjau apa yang dilihat pengunjung tanpa login | `class.manage` |
 | Kelas | `/settings/theme` — "Tema kelas" | Warna, tipografi, tata letak + laporan kontras | `class.manage` |
 | Pengelolaan | `/settings/visibility` — "Aturan visibilitas" | Siapa boleh membuka tiap halaman/bagian; batas terluar di atas aturan pribadi | `class.manage` |
 | Pengelolaan | `/settings/members` — "Anggota" | Undang, terbitkan tautan akses sekali pakai, aktifkan/nonaktifkan, hapus | `members.manage` |
+
+`/class` sengaja **di luar** `/settings`: halaman itu adalah kelas itu sendiri —
+pengunjung tanpa login boleh membukanya (hanya bagian pengelolaan yang
+dirender untuk `class.manage`), jadi ia bukan halaman pengaturan. Seluruh
+penyebutan `/settings/class` di bagian yang lebih lama merujuk lokasi sebelum
+6 Oktober 2026.
 
 Aturan yang menjaga konsistensinya:
 
@@ -450,17 +458,20 @@ Aturan yang menjaga konsistensinya:
 2. **Judul di indeks = judul halaman (`h1`).** Sudah selaras: `Akun & kata
    sandi` dan `Aturan visibilitas` (sebelumnya h1-nya `Akun` dan `Visibilitas`,
    jadi nama yang sama menunjuk dua hal berbeda).
-3. **Jalur keluar dari mana pun.** Semua enam halaman punya "Semua pengaturan"
-   di atas judulnya (`SettingsBackLink`), jadi tidak ada halaman yang jadi
-   jalan buntu.
+3. **Jalur keluar dari mana pun.** Kelima halaman di dalam `/settings` punya
+   "Semua pengaturan" di atas judulnya (`SettingsBackLink`), jadi tidak ada
+   halaman pengaturan yang jadi jalan buntu. `/class` tidak memakainya karena
+   halaman itu juga dibuka pengunjung biasa.
 4. **Entri yang tidak berhak tidak dirender** — baik di indeks maupun di nav,
    memakai aturan yang sama (§7.8). Konsekuensinya: anggota biasa hanya
    melihat grup "Umum" saja.
 5. **Halaman pengaturan tidak saling menaut**; navigasi antar-pengaturan lewat
    indeks, bukan lewat tombol silang, supaya jaraknya jelas.
-6. **Anonim tidak melihat apa pun.** `/settings` dan keenam halamannya
-   mengarahkan ke `/login?next=…`; daftar pengaturan tidak pernah ikut terkirim
-   ke browser anonim.
+6. **Anonim tidak melihat apa pun dari pengaturan.** `/settings` dan kelima
+   halaman isinya mengarahkan ke `/login?next=…`; daftar pengaturan tidak
+   pernah ikut terkirim ke browser anonim. `/class` tetap boleh dibuka
+   pengunjung — itu halaman publik kelas — dan hanya bagian pengelolaannya yang
+   butuh `class.manage`.
 
 ---
 
@@ -544,6 +555,149 @@ tidak bisa menulis teks bebas seperti "Kelompok A".
 - Katalog mata kuliah bersama (dipilih ulang, bukan diketik) belum ada; kolomnya
   sekarang teks bebas 1–80. Perlu migration + halaman pengelolaan bila
   diminta.
+
+---
+
+## Perbaikan aktivasi pengguna (6 Oktober 2026)
+
+**Gejalanya:** setelah Ketua mengundang anggota lewat `/settings/members`,
+tombol **"Lanjutkan"** di halaman tautan akses (`/auth/confirm`) tidak melakukan
+apa pun. URL tidak berubah, formulir kembali kosong, dan baris `memberships`
+tetap `invited` — anggota tidak pernah bisa masuk.
+
+### Akar masalah: `history.replaceState(null, …)` menghapus state router Next
+
+`ConfirmAccessForm` membersihkan token sekali pakai dari address bar di dalam
+`onSubmit`:
+
+```js
+window.history.replaceState(null, '', window.location.pathname + window.location.search);
+```
+
+Next.js menyimpan state router-nya di `history.state`
+(`__PRIVATE_NEXTJS_INTERNALS_TREE`). Menggantinya dengan `null` tepat saat Server
+Action masih berjalan membuat **redirect dari Server Action diabaikan**.
+
+Respons servernya sendiri benar — `200`, header `x-action-redirect:
+/set-password;push`, payload RSC `/set-password` ada di body, cookie sesi +
+`pwd_setup=1` ter-set — tetapi browser tidak pernah pindah dan form remount
+kosong. Bukti pembanding: menghapus panggilan itu membuat redirect bekerja;
+memanggilnya kembali dengan `window.history.state` (state lama, bukan `null`)
+tetap bekerja. Jadi fragment tetap dibersihkan tanpa menghapus state internal
+router.
+
+| Lapis | Hasil setelah perbaikan |
+|---|---|
+| `/auth/confirm` | "Lanjutkan" → browser pindah ke `/set-password` |
+| `/set-password` | mode "Tentukan kata sandi", bukan reset |
+| Setelah simpan | redirect ke `/settings/profile?onboarding=1` + banner "Keanggotaanmu sudah aktif" |
+| Database | `status = active`, `joined_at` terisi |
+| Halaman Ketua | baris berubah dari **Menunggu aktivasi** menjadi **Aktif** |
+
+### Sekalian: status anggota dibaca dari sumber yang salah
+
+Tabel `/settings/members` menentukan status dari `!member.banned` (status ban di
+Auth Admin API). Akibatnya anggota yang **belum pernah memakai tautan akses**
+tampil sebagai **"Aktif"**, lengkap dengan tombol **"Nonaktifkan"** yang
+transisinya pasti ditolak trigger `memberships_guard` (EC021) — ajakan ke jalan
+buntu, dan langsung terlihat saat mengaktifkan anggota. Sekarang:
+
+- `MemberSummary`/`getMembers` ikut membaca `status` dari `member_profile_v`,
+  dan tabel menampilkan **Menunggu aktivasi / Aktif / Tidak aktif**.
+- Baris `invited` tidak menawarkan aksi status; diganti keterangan "Menunggu
+  anggota memakai tautan akses." Satu-satunya jalur ke `active` memang tautan
+  milik anggota sendiri (§6.4).
+- Field `banned` di `ManagedMember` dibuang karena hanya dipakai untuk label
+  yang salah itu.
+
+Sekalian juga: judul `/class` untuk pengelola disamakan dengan nama entrinya di
+indeks pengaturan, "Identitas kelas" (§10.1).
+
+### Verifikasi
+
+13 cek Chrome (Playwright sementara, dihapus setelah dipakai), semuanya lulus,
+tanpa page error: undangan terbit dengan tautan akses → tabel menampilkan
+"Menunggu aktivasi" tanpa tombol status yang mustahil → tautan dibuka →
+"Lanjutkan" → `/set-password` dan token hilang dari address bar → kata sandi
+→ `/settings/profile?onboarding=1` → tabel menjadi "Aktif" dengan tombol
+"Nonaktifkan" → `status` dan `joined_at` benar di database.
+
+### Yang belum
+
+- Anggota `invited` yang tautannya hilang belum bisa diterbitkan ulang dari
+  daftar anggota. Pesan kegagalan `inviteMember` sudah menyebut jalur itu, tapi
+  aksinya belum ada — ini fitur baru, bukan perbaikan bug.
+- Tidak ada tes otomatis untuk alur ini. Vitest berjalan di lingkungan `node`
+  (tanpa jsdom/testing-library) dan suite Playwright (`test:e2e`) belum punya
+  konfigurasi, jadi verifikasinya browser-nyata lewat skrip sementara.
+
+---
+
+## IA baru: pemisahan tegas publik vs pengaturan (6 Oktober 2026)
+
+Permintaan Knotus: "hanya tombol-tombol di settings yang benar-benar berguna…
+buat pemisahan tegas antara navigasi publik (read-only) dan settings (CRUD)".
+Tiga keputusan yang dipakai:
+
+1. **Anggota** — `/members` tetap daftar (read-only) + tombol **"Kelola
+   anggota"** → `/settings/members`.
+2. **Kelas** — seluruh CRUD pindah ke **`/class`**, `/settings/class` dihapus,
+   dan "Kelas" keluar dari sidebar karena isinya sudah tampil di beranda.
+3. **Bug publik** — "sudah menambahkan jadwal, event dan tugas… tapi beranda
+   non-user masih kosong".
+
+| Bagian | Sebelum | Sekarang |
+|---|---|---|
+| Sidebar | 6 item konten (termasuk "Kelas") | 5 item konten + "Pengaturan" |
+| `/class` | hanya tampilan baca | CRUD kelas (identitas, gambar, tautan) + "Tampilan publik" |
+| `/settings/class` | halaman CRUD | **dihapus** → 404; entri indeks menunjuk `/class` |
+| `/members` | daftar saja | daftar + "Kelola anggota" (hanya `members.manage`) |
+| Beranda anonim | hanya identitas kelas | penjelasan "Halaman publik kelas" + tombol masuk |
+| Beranda pengelola | — | blok "Kelola kelas" → `/class`, `/settings/members`, `/settings/visibility` |
+| Editor visibilitas | select + catatan plafon | ringkasan "Tampilan pengunjung tanpa login" + catatan per key, dihitung **sebelum disimpan** |
+
+`page.class_about` tetap jadi kunci visibilitas `/class`; yang hilang hanya item
+navigasinya. Pratinjau di editor memakai fungsi murni baru
+`publicVisibility(map, choices)` di `src/lib/visibility/registry.ts` — cermin
+`app.effective_audience` (plafon `widest_audience`, plafon page induk, dan
+syarat `dataSource` untuk section Home). Tes barunya:
+`tests/unit/public-visibility.test.ts` (4 tes: bawaan katalog, section tetap
+tertutup selama page sumbernya tertutup, plafon `widest_audience` berlaku, dan
+aturan bisa ditutup lagi).
+
+### Kenapa beranda pengunjung kosong — dan kenapa itu bukan bug render
+
+Ternyata tabel **`visibility_rules` kosong**: pilihan yang diubah di
+`/settings/visibility` belum pernah tersimpan (select diubah, tombol "Simpan
+aturan" tidak ditekan). RPC `save_class_visibility` sendiri terbukti sehat —
+dipanggil dengan JWT Ketua, baris uji masuk, lalu dihapus lagi.
+
+Dengan hanya aturan bawaan katalog, yang publik adalah `page.home`,
+`page.class_about`, `section.home.identity`, dan `field.class.*` — jadi
+pengunjung memang hanya melihat identitas kelas. Satu hal yang mudah
+terlewat: `section.home.schedule`, `section.home.events`, dan
+`section.home.tasks` **butuh dua syarat** — key section-nya publik **dan** page
+sumbernya (`page.schedule` / `page.events` / `page.tasks`) publik. Itu persis
+yang sekarang ditunjukkan ringkasan sebelum menyimpan.
+
+### Verifikasi
+
+29 cek Chrome, semuanya lulus:
+
+- Sidebar Ketua = Beranda | Jadwal | Event | Tugas | Anggota | Pengaturan;
+  beranda punya 3 pintu masuk kelola.
+- `/class`: form identitas, unggah logo & cover, editor tautan, bagian
+  "Tampilan publik"; anonim dapat 200 dengan **0 form** dan tetap melihat
+  pratinjau publiknya.
+- `/members` → satu tombol "Kelola anggota" yang benar-benar membuka
+  `/settings/members` (isinya "Undang anggota baru").
+- Indeks `/settings` menaut `/class` (bukan `/settings/class`);
+  `/settings/class` → **404**.
+- Editor visibilitas: ringkasan naik 10 → 12 bagian saat `page.schedule` +
+  `section.home.schedule` diubah ke publik, menyebut "Jadwal", baris "Tampak"
+  ikut bertambah — dan **`visibility_rules` tetap 0 baris** (belum disimpan).
+- Anonim: beranda menampilkan penjelasan + tombol masuk tanpa blok kelola;
+  `/settings/visibility` mendarat di `/login?next=%2Fsettings`.
 
 ---
 
