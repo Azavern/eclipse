@@ -2,19 +2,24 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { safeRedirect } from '@/lib/safe-redirect';
-import { fail, type FormState } from '@/lib/result';
-import { getViewer } from '@/lib/visibility/server';
+import { fail, forbidden, ok, type FormState } from '@/lib/result';
+import { getViewer, requirePermission } from '@/lib/visibility/server';
 import {
   changePasswordSchema,
   echoValues,
   loginSchema,
+  resetRequestSchema,
   setPasswordSchema,
   validationErrorFrom,
 } from './schemas';
 import { env } from '@/lib/env';
 import { PWD_SETUP_COOKIE, PWD_SETUP_MAX_AGE, PWD_SETUP_VALUE } from './constants';
+import { getClassIdentity } from '@/features/class/queries';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { z } from 'zod';
 
 /**
  * Login email + password.
@@ -197,6 +202,170 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   }
 
   return { ok: true, data: null };
+}
+
+/**
+ * Permintaan ganti kata sandi mandiri (A-06).
+ *
+ * Tidak ada email delivery di free tier ini (A-05), jadi aksi ini tidak mengirim
+ * apa pun ke siapa pun: ia hanya mendaftarkan email ke antrean yang dilihat
+ * Ketua. Tautan sekali pakainya terbit terpisah, saat Ketua menekan tombol di
+ * antrean itu — bukan di sini.
+ *
+ * Email hanya diterima bila akun itu benar-benar anggota kelas ini. Balasan
+ * "belum terdaftar" sengaja dibiarkan terbuka (permintaan Knotus), jadi form ini
+ * sekaligus jadi alat untuk memeriksa apakah sebuah email punya akun di kelas
+ * ini; risikonya dicatat di `docs/STATUS.md`. Pesan pada form login sendiri
+ * tetap generik (§23).
+ *
+ * Penulisan memakai service role: class_id selalu berasal dari server, bukan
+ * dari isian form, dan tabelnya tidak punya INSERT untuk `anon`, jadi peramban
+ * tidak punya permukaan tulis langsung ke tabel antrean (§9).
+ */
+export async function requestPasswordReset(_prev: FormState, fd: FormData): Promise<FormState> {
+  const parsed = resetRequestSchema.safeParse({ email: fd.get('email') });
+  const values = echoValues(fd);
+  if (!parsed.success) return validationErrorFrom(parsed.error, values);
+
+  const email = parsed.data.email;
+
+  // Satu kelas per deployment (A-02), jadi class_id selalu dari server.
+  const identity = await getClassIdentity();
+  if (!identity) {
+    return fail({ code: 'unknown', message: 'Permintaan tidak bisa diproses sekarang. Coba lagi.' });
+  }
+
+  const admin = createAdminClient();
+
+  // Permintaan yang sama sudah tercatat: jawab sama saja tanpa memanggil Auth
+  // lagi. Ini sekaligus membatasi biaya endpoint anonim yang bisa diulang.
+  const { data: alreadyPending } = await admin
+    .from('password_reset_requests')
+    .select('id')
+    .eq('class_id', identity.id)
+    .eq('email', email)
+    .eq('status', 'pending')
+    .limit(1);
+
+  if (alreadyPending && alreadyPending.length > 0) return ok(null);
+
+  // Email tidak ada di tabel aplikasi (hanya di Auth), jadi keberadaannya
+  // dibaca lewat Auth Admin API dan dicocokkan dengan membership kelas ini.
+  const [{ data: memberships }, { data: userList, error: userError }] = await Promise.all([
+    admin.from('memberships').select('user_id').eq('class_id', identity.id),
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ]);
+
+  if (userError) {
+    console.error('[auth] gagal membaca daftar user Auth', { code: userError.message });
+    return fail({ code: 'unknown', message: 'Permintaan tidak bisa diproses sekarang. Coba lagi.' });
+  }
+
+  const memberIds = new Set((memberships ?? []).map((m) => m.user_id));
+  const isMember = (userList.users ?? []).some(
+    (u) => u.email?.toLowerCase() === email && memberIds.has(u.id),
+  );
+
+  if (!isMember) {
+    // Email sengaja tidak dicatat (§9: data pribadi jangan masuk log).
+    console.error('[auth] permintaan ganti sandi ditolak: bukan anggota kelas');
+    return fail({
+      code: 'not_found',
+      message:
+        'Email itu belum terdaftar sebagai anggota kelas ini. Minta Ketua mengundangmu lebih dulu.',
+    });
+  }
+
+  const { error } = await admin.from('password_reset_requests').insert({
+    class_id: identity.id,
+    email,
+  });
+
+  // 23505 = permintaan yang sama masuk bersamaan di dua tab; sama saja dengan berhasil.
+  if (error && error.code !== '23505') {
+    console.error('[auth] gagal menyimpan permintaan ganti sandi', { code: error.code });
+    return fail({ code: 'unknown', message: 'Permintaan tidak tersimpan. Coba lagi.' });
+  }
+
+  return ok(null);
+}
+
+/**
+ * Terbitkan tautan ganti kata sandi untuk satu permintaan di antrean.
+ *
+ * Tautan adalah kredensial: dibuat di sini, dikembalikan ke dialog **sekali**,
+ * tidak disimpan di database maupun di log (§6.2). Pola yang sama dengan
+ * undangan anggota.
+ *
+ * Baris antrean ditandai `issued` tepat setelah tautan terbit, sehingga Ketua
+ * melihat bahwa tautan untuk permintaan itu sudah keluar dan tidak bisa
+ * menerbitkannya dua kali. Penandaan itu memakai komponen `status` saja;
+ * `issued_at` diisi trigger database.
+ */
+export async function issuePasswordResetLink(_prev: FormState, fd: FormData): Promise<FormState> {
+  const gate = await requirePermission('members.manage');
+  if (!gate) return forbidden();
+
+  const rawId = fd.get('id');
+  const id = typeof rawId === 'string' ? rawId : '';
+  if (!z.string().uuid().safeParse(id).success) {
+    return fail({ code: 'validation', message: 'Permintaan tidak valid.' });
+  }
+
+  const supabase = await createClient();
+
+  // RLS sudah membatasi baris ke kelas yang pemanggil boleh kelola.
+  const { data: resetRequest, error: readError } = await supabase
+    .from('password_reset_requests')
+    .select('id, email, status')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (readError) {
+    console.error('[auth] gagal membaca permintaan ganti sandi', { code: readError.code });
+    return fail({ code: 'unknown', message: 'Permintaan tidak bisa dibaca. Coba lagi.' });
+  }
+  if (!resetRequest) {
+    return fail({ code: 'not_found', message: 'Permintaan sudah tidak ada.' });
+  }
+  if (resetRequest.status !== 'pending') {
+    return fail({ code: 'conflict', message: 'Tautan untuk permintaan ini sudah terbit.' });
+  }
+
+  const admin = createAdminClient();
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email: resetRequest.email,
+  });
+
+  if (linkError || !link?.properties?.hashed_token) {
+    console.error('[auth] gagal menerbitkan tautan ganti sandi', { code: linkError?.code });
+    return fail({ code: 'unknown', message: 'Tautan gagal diterbitkan. Coba lagi.' });
+  }
+
+  // `eq('status','pending')` sebagai syarat kedua: kalau dua tab menekan tombol
+  // bersamaan, hanya satu yang benar-benar mengubah baris.
+  const { data: updated, error: updateError } = await supabase
+    .from('password_reset_requests')
+    .update({ status: 'issued' })
+    .eq('id', id)
+    .eq('status', 'pending')
+    .select('id');
+
+  if (updateError || !updated || updated.length === 0) {
+    console.error('[auth] gagal menandai permintaan sebagai terbit', { code: updateError?.code });
+    return fail({
+      code: 'conflict',
+      message: 'Permintaan ini sudah ditangani. Muat ulang halaman.',
+    });
+  }
+
+  revalidatePath('/', 'layout');
+
+  return ok({
+    url: `${env.APP_URL}/auth/confirm#token_hash=${encodeURIComponent(link.properties.hashed_token)}&type=recovery`,
+    email: resetRequest.email,
+  });
 }
 
 export async function signOut(): Promise<void> {

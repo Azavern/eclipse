@@ -776,6 +776,91 @@ berbasis kolom (pola yang sama seperti `tasks.course`).
   diminta adalah pemisahan halaman (jadwal vs event), bukan penghapusan jenis.
 - Halaman detail jadwal tidak dibuat; "Ubah" tetap langsung dari baris daftar.
 
+## Tombol tampil/sembunyikan kata sandi (6 Oktober 2026)
+
+Permintaan Knotus: "tambahkan hidden/show toggle di setiap input field (kayak
+password) supaya password yang diketik masih bisa dilihat". Yang dimaksud
+"kayak password" adalah field bertipe sandi — tombol tampil/sembunyikan tidak
+bermakna pada field teks biasa — jadi keenam field sandi di aplikasi memakai satu
+primitive yang sama.
+
+### Yang dibuat
+
+`src/components/ui/PasswordInput.tsx`. Tanpa dependensi baru: ikon `Eye` /
+`EyeOff` dari `lucide-react` yang sudah dipakai, dan tombolnya `IconButton` yang
+tipe-nya memaksa nama aksesibel diisi. Primitive ini membungkus `Input`, jadi
+`invalid` dan `aria-describedby` dari `FormField` diteruskan apa adanya.
+
+Yang diubah **hanya atribut `type`** antara `password` dan `text`. Nilai yang
+diketik tidak pernah masuk state React, jadi tidak ada salinan kata sandi di
+memori peramban; karena field tetap uncontrolled, isian pun tidak hilang saat
+tipe ditukar.
+
+| Lokasi | Field | Nama tombol |
+|---|---|---|
+| `/login` | `password` | Tampilkan kata sandi |
+| `/set-password` (aktivasi & reset) | `password` | Tampilkan kata sandi |
+| `/set-password` (aktivasi & reset) | `confirmPassword` | Tampilkan konfirmasi kata sandi |
+| `/settings/account` | `currentPassword` | Tampilkan kata sandi sekarang |
+| `/settings/account` | `password` | Tampilkan kata sandi baru |
+| `/settings/account` | `confirmPassword` | Tampilkan konfirmasi kata sandi baru |
+
+`toggleLabel` dipakai di halaman yang punya beberapa field sekaligus, karena
+tiga tombol bernama sama di satu layar tidak bisa dibedakan saat pengguna
+menavigasi lewat daftar tombol pembaca layar. Pembedaan seperti ini juga sudah
+ada di desain Stitch: mock aktivasi memakai dua nama berbeda, mock login satu.
+
+Empat keputusan yang mengikat:
+
+1. **Pola toggle button ARIA**: nama aksesibelnya tetap, keadaan diumumkan lewat
+   `aria-pressed`. Mengganti nama tombol setiap klik membuat pembaca layar
+   membacakan *aksi*, bukan *keadaan* tombolnya.
+2. **`type="button"`** — tanpa itu tombol ikut men-submit form dan membatalkan
+   pengisian sandi yang belum selesai.
+3. **Ikon `aria-hidden`**, nama aksesibel datang dari `label`; target sentuh
+   setinggi field, jadi tetap memenuhi batas sentuh §16.
+4. **Area kanan input diberi `pe-12`** supaya isian panjang tidak tertutup ikon;
+   titik sentuh tombol berada di dalam kotak field, bukan menimpanya.
+
+Tombolnya juga masuk galeri state `/dev/ui`, seperti primitive lain.
+
+### Verifikasi
+
+- `lint`, `typecheck`, `test` (12 file, 156 tes), `check:tokens`,
+  `check:boundaries`: semua keluar 0. Tidak ada tes baru: vitest berjalan di
+  lingkungan `node` tanpa jsdom, jadi event klik dan `aria-pressed` tidak bisa
+  diuji di sana.
+- **149 cek Chrome** (Playwright sementara, dihapus setelah dipakai), semua
+  lulus, pada `/login`, ketiga field `/settings/account`, kedua field
+  `/set-password`, dan contoh galeri: tipe awal `password`; klik → `text` dan
+  `aria-pressed=true`; klik lagi → kembali `password`; nilai tetap utuh di kedua
+  arah; klik tidak men-submit form; `Tab` dari input langsung ke tombol dan
+  `Enter`/`Space` menyalakannya; fokus tidak lepas dari tombol; padding kanan
+  minimal 40 px; tombol berada di dalam kotak field; tengah tombol bukan area
+  input; satu field yang menyala tidak mengubah dua field lain; pada lebar 375 px
+  tombol tetap di dalam field. `/set-password` diuji lewat **alur undangan
+  sungguhan** (Ketua mengundang → tautan sekali pakai → "Lanjutkan" →
+  `/set-password`), bukan dengan membuka URL-nya langsung.
+- `axe-core` pada form `/login`, `/settings/account`, dan `/set-password`:
+  **0 pelanggaran**.
+- Visual diperiksa dari tangkapan layar pada 1280 px dan 375 px, dalam keadaan
+  tersembunyi dan tampil.
+- Akun uji dihapus lewat UI aplikasi ("Hapus anggota" lalu konfirmasi);
+  database kembali ke 2 akun, 2 membership, dan 2 profil.
+
+### Catatan
+
+- Saat konfirmasi hapus anggota, React masih mencetak peringatan "An async
+  function with useActionState was called outside of a transition". Itu pola lama
+  `await deleteAction(fd)` di dalam `ConfirmDialog`, ada di **7 file**
+  (`MembersManager`, `EventForm`, `TaskForm`, `ScheduleForm`, `PortfolioEditor`,
+  `ClassLinksEditor`, `SocialLinksEditor`), dan **bukan** berasal dari perubahan
+  ini — `MembersManager.tsx` tidak tersentuh. Membungkusnya dalam
+  `startTransition` adalah pekerjaan terpisah yang belum dilakukan.
+- Tidak ada perilaku menyembunyikan ulang secara otomatis setelah submit atau
+  setelah beberapa detik. Isian sudah hilang bersama halaman setelah submit
+  berhasil, dan menyembunyikan di tengah pengisian justru menyulitkan pengguna.
+
 ---
 
 ## Desain Stitch vs blueprint

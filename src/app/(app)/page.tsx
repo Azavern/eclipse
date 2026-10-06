@@ -10,6 +10,7 @@ import {
   UpcomingSlot,
 } from '@/features/home/components/HomeSlots';
 import { SectionBoundary } from '@/components/ui/SectionBoundary';
+import { ResetRequestSlot } from '@/features/auth/components/ResetRequestSlot';
 import { Section } from '@/components/ui/Section';
 import { ButtonLink } from '@/components/ui/Button';
 import {
@@ -163,6 +164,19 @@ export default async function HomePage() {
           </div>
         </Section>
       ) : null}
+
+      {/*
+        Antrean ganti kata sandi (A-06). Beranda adalah tempat Ketua bekerja,
+        dan antrean ini adalah pekerjaan yang menunggu — bukan sekadar
+        pengaturan. Slot ini sendiri yang memeriksa izin dan kekosongan, jadi
+        halaman tidak perlu.
+      */}
+      <SectionBoundary>
+        <Suspense fallback={null}>
+          <ResetRequestSlot timezone={identity.timezone} />
+        </Suspense>
+      </SectionBoundary>
+
       {sections.map((key) =>
         // `mobileOrderClass` mengatur urutan mobile sesuai PRD; `lg:order-none`
         // mengembalikan desktop ke urutan preset yang dipilih Ketua (§16).

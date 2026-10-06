@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { changePassword } from '@/features/auth/actions';
 import { PASSWORD_MIN } from '@/lib/validation';
 import { FormField } from '@/components/ui/FormField';
-import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
@@ -32,10 +32,10 @@ export function ChangePasswordForm() {
         required
       >
         {(describedBy) => (
-          <Input
+          <PasswordInput
             id="currentPassword"
             name="currentPassword"
-            type="password"
+            toggleLabel="Tampilkan kata sandi sekarang"
             autoComplete="current-password"
             required
             invalid={Boolean(first('currentPassword'))}
@@ -52,10 +52,10 @@ export function ChangePasswordForm() {
         required
       >
         {(describedBy) => (
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
+            toggleLabel="Tampilkan kata sandi baru"
             autoComplete="new-password"
             required
             minLength={PASSWORD_MIN}
@@ -72,10 +72,10 @@ export function ChangePasswordForm() {
         required
       >
         {(describedBy) => (
-          <Input
+          <PasswordInput
             id="confirmPassword"
             name="confirmPassword"
-            type="password"
+            toggleLabel="Tampilkan konfirmasi kata sandi baru"
             autoComplete="new-password"
             required
             invalid={Boolean(first('confirmPassword'))}

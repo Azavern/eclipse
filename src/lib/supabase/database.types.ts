@@ -2,7 +2,7 @@
 //
 // CATATAN PENTING: file ini SEHARUSNYA hasil `supabase gen types typescript`.
 // Di lingkungan ini CLI tidak dapat menjangkau proyek (butuh access token /
-// Docker), sehingga file ini ditulis manual dari migration 0001-0010 dan harus
+// Docker), sehingga file ini ditulis manual dari migration 0001-0011 dan harus
 // di-regenerate sebelum deploy:
 //     pnpm db:types
 // Lihat docs/STATUS.md.
@@ -13,6 +13,7 @@ export type VisibilityAudience = 'public' | 'authenticated' | 'class_member' | '
 export type VisibilityScope = 'class' | 'member';
 export type VisibilityKind = 'page' | 'section' | 'field' | 'item';
 export type MembershipStatus = 'invited' | 'active' | 'inactive';
+export type PasswordResetStatus = 'pending' | 'issued';
 export type TaskStatus = 'active' | 'completed' | 'archived';
 export type ScheduleType = 'class' | 'activity';
 export type SocialPlatform =
@@ -98,6 +99,21 @@ export type MembershipRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Antrean permintaan ganti kata sandi (migration 0011).
+ *
+ * Baris ini bukan token: hanya email dan status. Tautan sekali pakainya
+ * diterbitkan terpisah lewat Auth Admin API dan tidak pernah disimpan.
+ */
+export type PasswordResetRequest = {
+  id: string;
+  class_id: string;
+  email: string;
+  status: PasswordResetStatus;
+  created_at: string;
+  issued_at: string | null;
 }
 
 export type MemberProfile = {
@@ -348,6 +364,13 @@ export type Database = {
         Row: Task;
         Insert: Partial<Task>;
         Update: Partial<Task>;
+        Relationships: [];
+      };
+      password_reset_requests: {
+        Row: PasswordResetRequest;
+        Insert: Partial<PasswordResetRequest> & { class_id: string; email: string };
+        /** Hanya `status` — `issued_at` diisi trigger database. */
+        Update: Partial<Pick<PasswordResetRequest, 'status'>>;
         Relationships: [];
       };
       visibility_catalog: {

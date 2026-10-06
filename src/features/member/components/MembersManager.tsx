@@ -11,51 +11,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
-
-/**
- * Tautan akses hanya dicetak sekali.
- *
- * Tautan ini adalah kredensial: tidak disimpan di DB, tidak masuk log, dan
- * tidak pernah bisa diambil lagi dari mana pun (§6.2). Karena itu isi form
- * sengaja tidak dikosongkan otomatis supaya operator sempat menyalinnya, dan
- * komponen ini adalah satu-satunya tempat yang menampilkannya.
- */
-function AccessLinkBox({ url, email }: { url: string; email: string }) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-3 rounded-md border border-success px-3 py-3">
-      <p className="text-small font-semibold text-success">
-        Tautan akses untuk {email} sudah terbit.
-      </p>
-      <p className="text-small text-text-muted">
-        Tautan ini hanya berlaku sekali dan tidak disimpan. Salin sekarang dan kirimkan ke anggota
-        tersebut — setelah dialog ditutup, tautan ini tidak bisa diambil lagi dari sistem.
-      </p>
-      <code className="block select-all break-all rounded-md border border-border-subtle bg-surface-dim px-3 py-2 text-small">
-        {url}
-      </code>
-      <div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(url);
-              setCopied(true);
-            } catch {
-              // Clipboard ditolak browser atau konteks tidak aman; tautan tetap
-              // bisa disalin manual dari kotak di atas.
-              setCopied(false);
-            }
-          }}
-        >
-          {copied ? 'Tersalin' : 'Salin tautan'}
-        </Button>
-      </div>
-    </div>
-  );
-}
+import { OneTimeLinkBox } from '@/components/ui/OneTimeLinkBox';
 
 function InviteForm() {
   const [state, action] = useActionState(inviteMember, null);
@@ -70,7 +26,13 @@ function InviteForm() {
     <form action={action} className="flex flex-col gap-5">
       <FormStatus state={state} successMessage="Anggota diundang. Salin tautan aksesnya sekarang." />
 
-      {accessUrl && accessEmail ? <AccessLinkBox url={accessUrl} email={accessEmail} /> : null}
+      {accessUrl && accessEmail ? (
+        <OneTimeLinkBox
+          url={accessUrl}
+          title={`Tautan akses untuk ${accessEmail} sudah terbit.`}
+          description="Tautan ini hanya berlaku sekali dan tidak disimpan. Salin sekarang dan kirimkan ke anggota tersebut — setelah dialog ditutup, tautan ini tidak bisa diambil lagi dari sistem."
+        />
+      ) : null}
 
       <FormField id="invite-email" label="Email" error={first('email')} required>
         {(describedBy) => (

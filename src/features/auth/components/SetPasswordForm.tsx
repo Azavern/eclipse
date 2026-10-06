@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { setPassword } from '@/features/auth/actions';
 import { PASSWORD_MIN } from '@/lib/validation';
 import { FormField } from '@/components/ui/FormField';
-import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
@@ -34,10 +34,9 @@ export function SetPasswordForm({ mode }: { mode: 'activate' | 'reset' }) {
         required
       >
         {(describedBy) => (
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={PASSWORD_MIN}
@@ -54,10 +53,10 @@ export function SetPasswordForm({ mode }: { mode: 'activate' | 'reset' }) {
         required
       >
         {(describedBy) => (
-          <Input
+          <PasswordInput
             id="confirmPassword"
             name="confirmPassword"
-            type="password"
+            toggleLabel="Tampilkan konfirmasi kata sandi"
             autoComplete="new-password"
             required
             invalid={Boolean(first('confirmPassword'))}

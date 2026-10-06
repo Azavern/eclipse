@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button, ButtonLink, IconButton } from '@/components/ui/Button';
 import { Input, Select, Textarea } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { FormField } from '@/components/ui/FormField';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -127,6 +128,21 @@ export function StateGallery() {
                 disabled
                 describedBy={describedBy}
                 defaultValue="Tidak bisa diubah"
+              />
+            )}
+          </FormField>
+
+          <FormField
+            id="g-password"
+            label="Password (tombol tampil/sembunyikan)"
+            hint="aria-pressed tombol berubah, nilai sandi tidak pernah masuk state React."
+          >
+            {(describedBy) => (
+              <PasswordInput
+                id="g-password"
+                describedBy={describedBy}
+                autoComplete="new-password"
+                defaultValue="RahasiaKelas"
               />
             )}
           </FormField>

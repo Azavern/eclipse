@@ -12,6 +12,18 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * Permintaan ganti kata sandi mandiri (A-06).
+ *
+ * `emailField` menormalkan ke huruf kecil, jadi bentuk yang disimpan selalu bisa
+ * dibandingkan dengan email di Auth dan tidak melanggar CHECK di database.
+ */
+export const resetRequestSchema = z.object({
+  email: emailField,
+});
+
+export type ResetRequestInput = z.infer<typeof resetRequestSchema>;
+
 export const setPasswordSchema = z
   .object({
     password: newPassword,

@@ -4,8 +4,10 @@ import { useActionState } from 'react';
 import { signIn } from '@/features/auth/actions';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
 
 export function LoginForm({ next }: { next: string }) {
   const [state, action] = useActionState(signIn, null);
@@ -39,10 +41,9 @@ export function LoginForm({ next }: { next: string }) {
 
       <FormField id="password" label="Kata sandi" error={first('password')} required>
         {(describedBy) => (
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             invalid={Boolean(first('password'))}
@@ -54,13 +55,12 @@ export function LoginForm({ next }: { next: string }) {
       <SubmitButton pendingLabel="Memeriksa…">Masuk</SubmitButton>
 
       {/*
-        "Lupa kata sandi" bukan tautan ke form reset: tidak ada email delivery
-        (A-05), jadi pemulihannya lewat Ketua (§6.2). Menaruh teks di sini
-        kalimat, bukan tautan mati.
+        "Lupa kata sandi" tetap melalui Ketua: tidak ada email delivery (A-05),
+        jadi pemulihannya lewat tautan yang dia terbitkan sendiri (§6.2). Yang
+        berubah dari kalimat mati adalah anggota bisa memberi tahu lewat form,
+        dan permintaannya muncul di beranda Ketua.
       */}
-      <p className="text-small text-text-muted">
-        Lupa kata sandi? Minta Ketua membuat tautan akses baru.
-      </p>
+      <ForgotPasswordForm />
     </form>
   );
 }
