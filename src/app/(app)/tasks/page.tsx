@@ -4,6 +4,7 @@ import { getClassIdentity } from '@/features/class/queries';
 import { getTasks } from '@/features/tasks/queries';
 import { TASK_STATUS_LABEL, toTaskStatus } from '@/features/tasks/schemas';
 import { TASK_DISPLAY_META } from '@/features/tasks/display';
+import { TaskCompleteForm } from '@/features/tasks/components/TaskCompleteForm';
 import { taskDisplayStatus } from '@/lib/time/domain';
 import { formatDateTime } from '@/lib/time';
 import { PageHeader } from '@/components/ui/Section';
@@ -125,9 +126,9 @@ export default async function TasksPage({
             const urgent = display === 'overdue' || display === 'due_soon';
 
             return (
-              <div
+              <article
                 key={task.id}
-                className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} flex flex-col gap-1 p-4`}
+                className={`${CARD_TIER_CLASSES.tertiary} flex justify-between gap-3 p-4`}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <h2
@@ -143,10 +144,23 @@ export default async function TasksPage({
                   {courseLabel(task.course)} · {formatDateTime(task.deadline, timezone)} ·{' '}
                   {task.target}
                 </p>
-                <Link href={`/tasks/${task.id}`} className="mt-1 text-small text-primary underline">
-                  Lihat tugas
-                </Link>
-              </div>
+                {/*
+                  Aksi hanya dirender kalau memang bisa dipakai: tombol centang
+                  butuh `tasks.manage` (gate yang sama dengan `setTaskStatus`) dan
+                  hanya masuk akal selama tugasnya masih aktif. Tugas yang sudah
+                  selesai atau diarsipkan tidak diberi tombol mati — statusnya
+                  sudah dibawa Badge di atas, dan mengaktifkan lagi tersedia di
+                  halaman detail.
+                */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {canManage && task.status === 'active' ? (
+                    <TaskCompleteForm id={task.id} title={task.title} />
+                  ) : null}
+                  <ButtonLink href={`/tasks/${task.id}`} variant="secondary">
+                    Detail
+                  </ButtonLink>
+                </div>
+              </article>
             );
           })}
           </div>

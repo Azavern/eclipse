@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState, ErrorState, NoAccess } from '@/components/ui/States';
 import { SkeletonList, SkeletonText } from '@/components/ui/Skeleton';
+import { IconSubmitButton } from '@/components/ui/SubmitButton';
 import { PageHeader, Section } from '@/components/ui/Section';
 import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
@@ -78,6 +79,17 @@ export function StateGallery() {
           <IconButton label="Tutup" variant="secondary" disabled>
             <X aria-hidden="true" className="size-5" />
           </IconButton>
+        </Row>
+        <Row label="ikon submit (spinner + aria-busy selama aksi berjalan)">
+          <form
+            action={async () => {
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+            }}
+          >
+            <IconSubmitButton label="Tandai selesai: contoh tugas" variant="secondary">
+              <Check aria-hidden="true" className="size-5" />
+            </IconSubmitButton>
+          </form>
         </Row>
       </Section>
 

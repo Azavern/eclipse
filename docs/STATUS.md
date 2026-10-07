@@ -1276,6 +1276,68 @@ bukan dari teks pesan). Itu artefak mode dev: build produksi **0 error**.
 
 ---
 
+## Tombol centang & Detail di daftar tugas (7 Oktober 2026)
+
+Permintaan Knotus: di daftar seluruh tugas, tambahkan tombol centang untuk
+menandai tugas selesai, dan tombol "Detail" untuk membuka satu tugas penuh —
+sebelumnya hanya teks "Lihat tugas".
+
+### Yang berubah
+
+- **`IconSubmitButton`** (`src/components/ui/SubmitButton.tsx`): versi ikon dari
+  `SubmitButton`, memakai `IconButton` yang sudah ada. `label` wajib, sama seperti
+  `IconButton` (§7: tombol ikon tanpa nama aksesibel tidak bisa dioperasikan
+  pembaca layar), dan `useFormStatus` memberi spinner + `aria-busy` + `disabled`
+  selama aksi berjalan sehingga double-submit tidak mungkin.
+- **`TaskCompleteForm`**
+  (`src/features/tasks/components/TaskCompleteForm.tsx`, baru): form kecil per
+  baris yang memanggil `setTaskStatus` dengan `status=completed`.
+- **`/tasks`**: tiap kartu unit tugas sekarang berisi tombol centang (ikon saja,
+  nama aksesibel "Tandai selesai: <judul>") dan `ButtonLink` varian `secondary`
+  berlabel **Detail**. Elemen barisnya naik dari `<div>` ke `<article>`, sama
+  seperti kartu unit di `/schedule` dan portofolio.
+
+### Keputusan yang perlu diketahui
+
+- **Tombol centang hanya dirender bila `canManage` dan statusnya `active`.**
+  `setTaskStatus` sudah digerbangi `tasks.manage` di server dan gerbang itu
+  **tidak** dilonggarkan; aksi dirender hanya saat bisa dipakai, bukan sebagai
+  tombol mati. Tugas yang selesai/diarsipkan tetap terbaca statusnya dari Badge,
+  dan "Aktifkan lagi" tetap ada di halaman detail.
+- **Modul terpisah, bukan menumpang `TaskForm.tsx`.** Modul itu memuat seluruh
+  form tugas (input, select, textarea, `ConfirmDialog`); kalau
+  `TaskCompleteForm` tinggal di sana, halaman daftar akan mengirim semua itu ke
+  browser demi satu tombol (§12). Diverifikasi lewat client-reference manifest
+  hasil build: entri `/tasks` memuat `TaskCompleteForm` dan **tidak** memuat
+  `TaskForm`.
+
+### Verifikasi
+
+`check:tokens`, `check:boundaries`, `lint`, `typecheck`, `test` (13 file, 161
+tes), dan `build`: semua keluar 0. **12 cek Chrome** pada primitive barunya di
+`/dev/ui` (Playwright sementara, dihapus):
+
+- `<button type="submit">` di dalam `<form>`, `aria-label` dan `title` keduanya
+  "Tandai selesai: contoh tugas", ikon `aria-hidden`.
+- Terbaca sebagai tombol, bukan teks: garis 1 px warna primary + latar `surface`.
+- Target sentuh 44×44 px (§16).
+- Saat aksi berjalan: `aria-busy="true"` dan `disabled`; setelah selesai kembali
+  ke idle.
+
+Primitive-nya juga didokumentasikan di `/dev/ui`, karena galeri itu memang
+tempatnya ("setiap primitive pada setiap state").
+
+### Yang TIDAK terverifikasi
+
+- **Halaman `/tasks` sendiri tidak pernah ter-render**: pengunjung anonim
+  dialihkan ke `/login?next=%2Ftasks`, dan proyek belum punya harness e2e atau
+  helper sesi. Jadi susunan baris (centang + "Detail"), efek `revalidatePath`
+  setelah menandai selesai, dan toast "Tugas ditandai selesai." baru terbukti
+  lewat typecheck, build, dan verifikasi primitive-nya — bukan render halaman
+  aslinya.
+
+---
+
 ## Desain Stitch vs blueprint
 
 Ekspor Stitch tersedia di `stitch_ui_system/` (16 layar + `DESIGN.md` sistem
