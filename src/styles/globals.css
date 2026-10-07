@@ -191,31 +191,60 @@
     transform: translateY(calc(var(--spacing) * -1)) scale(1.02);
   }
 
-  /* Grid kartu: satu kolom di mobile, dua kolom seragam dari 1024px. Kartu
-     terakhir pada jumlah ganjil melebar penuh supaya tidak ada setengah baris
-     kosong. `minmax(0, 1fr)` menahan tabel lebar agar menggulir di dalam
-     kontainernya sendiri, bukan melebarkan grid (§16). */
+  /* Bayangan saat disentuh diberikan per tingkat, dan hanya pada card yang
+     memang bisa diklik — card teks tidak ikut bereaksi. Tingkatnya dipilih lewat
+     penanda `.card-tier-*`, bukan lewat `hover:shadow-*` di utility, supaya
+     keaktifan hover tetap satu keputusan (`.card-interactive`). */
+  .card-interactive.card-tier-primary:hover {
+    box-shadow: var(--shadow-glow-high);
+  }
+
+  .card-interactive.card-tier-secondary:hover {
+    box-shadow: var(--shadow-medium);
+  }
+
+  .card-interactive.card-tier-tertiary:hover {
+    box-shadow: var(--shadow-low);
+  }
+
+  /* Deretan kartu: satu kolom di mobile, dua kolom seragam dari 1024px.
+
+     Memakai flex-wrap, bukan `display: grid`, justru karena flex bisa mengurus
+     sisa baris dengan sendirinya: `flex-grow: 1` membuat kartu terakhir pada
+     jumlah ganjil melebar mengisi barisnya, tanpa perlu menghitung ganjil-genap
+     dengan `:nth-child`. Aturan `:nth-child` dulu rapuh — begitu ada anak yang
+     bukan kartu (judul halaman, bilah filter) ikut masuk, hitungannya bergeser
+     dan justru meninggalkan satu sel kosong.
+
+     Penandanya `card-cell` (semua kartu), BUKAN `card-interactive` (hanya kartu
+     yang bisa diklik): dengan yang kedua, setiap kartu teks yang tidak bisa
+     diklik akan dipaksa melebar penuh dan susunannya runtuh jadi satu kolom.
+
+     `min-width: 0` menahan tabel lebar agar menggulir di dalam kontainernya
+     sendiri, bukan melebarkan barisnya (§16). */
   .card-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: calc(var(--spacing) * 6);
-    align-items: start;
+    --card-grid-gap: calc(var(--spacing) * 6);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--card-grid-gap);
+    align-items: flex-start;
+  }
+
+  /* Anak yang BUKAN kartu — judul halaman, bilah filter, empty state — selalu
+     melebar penuh, jadi chrome halaman tetap tersusun satu kolom. */
+  .card-grid > :not(.card-cell) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .card-grid > .card-cell {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
   @media (width >= 1024px) {
-    .card-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .card-grid > :last-child:nth-child(odd) {
-      grid-column: 1 / -1;
-    }
-
-    /* Anak grid yang BUKAN card — judul halaman, bilah filter, empty state —
-       selalu melebar penuh. Dengan begitu grid hanya membagi card, dan chrome
-       halaman tetap tersusun satu kolom seperti sebelumnya. */
-    .card-grid > :not(.card-interactive) {
-      grid-column: 1 / -1;
+    .card-grid > .card-cell {
+      flex: 1 1 calc(50% - var(--card-grid-gap) / 2);
     }
   }
 

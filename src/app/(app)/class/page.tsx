@@ -3,7 +3,8 @@ import { getClassIdentity, getEditableClass, getClassLinks } from '@/features/cl
 import { ClassIdentityForm } from '@/features/class/components/ClassIdentityForm';
 import { ClassLinksEditor } from '@/features/class/components/ClassLinksEditor';
 import { ClassImageUpload } from '@/features/class/components/ClassImageUpload';
-import { PageHeader, Section, List, ListItem } from '@/components/ui/Section';
+import { PageHeader, Section } from '@/components/ui/Section';
+import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { StorageImage } from '@/components/storage/StorageImage';
 import { formatDateTime } from '@/lib/time';
@@ -217,21 +218,24 @@ export default async function ClassPage() {
             visibleLinks.length === 0 ? (
               <p className="text-small text-text-muted">Belum ada tautan yang ditambahkan.</p>
             ) : (
-              <List>
+              /*
+                Tiap tautan satu kartu, dan seluruh permukaannya memang bisa
+                diklik, jadi `CARD_INTERACTIVE` di sini bukan sinyal palsu.
+              */
+              <div className="flex flex-col gap-3">
                 {visibleLinks.map((link) => (
-                  <ListItem key={link.id}>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-body text-primary underline"
-                    >
-                      {link.label}
-                      <span className="ms-2 text-small text-text-muted">{link.platform}</span>
-                    </a>
-                  </ListItem>
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex flex-col gap-0.5 p-4`}
+                  >
+                    <span className="text-body font-semibold text-text">{link.label}</span>
+                    <span className="text-small text-text-muted">{link.platform}</span>
+                  </a>
                 ))}
-              </List>
+              </div>
             )
           ) : null}
 

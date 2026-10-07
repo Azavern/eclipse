@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, CalendarDays, ClipboardList, Sparkles } from 'lucide-react';
-import { Section, List, ListItem } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES, type CardTier } from '@/components/ui/Card';
+import { Section } from '@/components/ui/Section';
+import { CARD_BASE, CARD_INTERACTIVE, CARD_TIER_CLASSES, type CardTier } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { StorageImage } from '@/components/storage/StorageImage';
@@ -131,7 +131,7 @@ export function UpcomingList({
   }
 
   return (
-    <List>
+    <div className="flex flex-col gap-3">
       {entries.map((entry) => {
         const { label, Icon } = KIND_META[entry.kind];
         const body = (
@@ -150,19 +150,28 @@ export function UpcomingList({
           </div>
         );
 
-        return (
-          <ListItem key={`${entry.kind}-${entry.at}-${entry.title}`}>
-            {entry.href ? (
-              <Link href={entry.href} className="block transition-func hover:opacity-80">
-                {body}
-              </Link>
-            ) : (
-              body
-            )}
-          </ListItem>
+        /*
+         * Tiap agenda satu kartu. Hanya entri yang punya tujuan yang memasang
+         * `CARD_INTERACTIVE` — entri tanpa tautan sengaja diam saat disentuh,
+         * supaya gerakan hover selalu berarti "ini bisa dibuka".
+         */
+        const key = `${entry.kind}-${entry.at}-${entry.title}`;
+
+        return entry.href ? (
+          <Link
+            key={key}
+            href={entry.href}
+            className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} block p-4`}
+          >
+            {body}
+          </Link>
+        ) : (
+          <div key={key} className={`${CARD_TIER_CLASSES.tertiary} p-4`}>
+            {body}
+          </div>
         );
       })}
-    </List>
+    </div>
   );
 }
 

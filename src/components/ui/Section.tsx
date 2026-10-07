@@ -87,14 +87,3 @@ export function Section({
   );
 }
 
-/**
- * Daftar di DALAM card memakai pemisah baris, bukan card bersarang — card di
- * dalam card membuat batas kelompok jadi kabur, bukan lebih jelas (§17.3).
- */
-export function List({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`flex flex-col ${className}`}>{children}</div>;
-}
-
-export function ListItem({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`border-t border-border-subtle py-3 first:border-t-0 ${className}`}>{children}</div>;
-}

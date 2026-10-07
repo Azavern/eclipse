@@ -10,7 +10,8 @@ import { SCHEDULE_TYPE_LABEL, WEEKDAYS } from '@/features/schedule/schemas';
 import { ScheduleFilters } from '@/features/schedule/components/ScheduleFilters';
 import { DEFAULT_TIMEZONE, formatWallTimeRange } from '@/lib/time';
 import { isSemester, recentSemesters, semesterFor, sortSemestersDesc } from '@/lib/semester';
-import { PageHeader, Section, List, ListItem } from '@/components/ui/Section';
+import { PageHeader, Section } from '@/components/ui/Section';
+import { CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { EmptyState, NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 
@@ -112,63 +113,71 @@ export default async function SchedulePage({
         />
       ) : (
         groups.map((group) => (
+          /*
+            Kartu besar = kategori (hari), kartu kecil = satu unit informasi
+            (satu jadwal). Dulu barisnya hanya dipisah garis di dalam satu kartu
+            besar, sehingga tiap mata kuliah tidak punya batas sendiri. Kartu
+            ini TIDAK menerima hover: yang bisa diklik hanya tautan "Ubah" di
+            dalamnya, bukan seluruh kartunya.
+          */
           <Section key={group.value} tier="secondary" title={group.label}>
-            <List>
+            <div className="flex flex-col gap-3">
               {group.rows.map((row) => {
                 const Icon = TYPE_ICON[row.type];
                 return (
-                  <ListItem key={row.id}>
-                    <article className="flex flex-col gap-1">
-                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-text-muted">
-                        <Icon aria-hidden="true" className="size-4 shrink-0" />
-                        <span className="font-semibold">{SCHEDULE_TYPE_LABEL[row.type]}</span>
-                        <span>{formatWallTimeRange(row.start_time, row.end_time, timezone)}</span>
-                      </p>
+                  <article
+                    key={row.id}
+                    className={`${CARD_TIER_CLASSES.tertiary} flex flex-col gap-1 p-4`}
+                  >
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-text-muted">
+                      <Icon aria-hidden="true" className="size-4 shrink-0" />
+                      <span className="font-semibold">{SCHEDULE_TYPE_LABEL[row.type]}</span>
+                      <span>{formatWallTimeRange(row.start_time, row.end_time, timezone)}</span>
+                    </p>
 
-                      <h3 className="text-body font-semibold text-text">{row.title}</h3>
+                    <h3 className="text-body font-semibold text-text">{row.title}</h3>
 
-                      {row.location ? (
-                        <p className="text-small text-text-muted">{row.location}</p>
-                      ) : null}
+                    {row.location ? (
+                      <p className="text-small text-text-muted">{row.location}</p>
+                    ) : null}
 
-                      {row.description || row.url ? (
-                        <details className="mt-1">
-                          <summary className="cursor-pointer text-small font-semibold text-primary underline">
-                            Detail
-                          </summary>
-                          <div className="mt-2 flex flex-col gap-2">
-                            {row.description ? (
-                              <p className="whitespace-pre-line text-small text-text">
-                                {row.description}
-                              </p>
-                            ) : null}
-                            {row.url ? (
-                              <a
-                                href={row.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-small text-primary underline"
-                              >
-                                Buka tautan
-                              </a>
-                            ) : null}
-                          </div>
-                        </details>
-                      ) : null}
+                    {row.description || row.url ? (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-small font-semibold text-primary underline">
+                          Detail
+                        </summary>
+                        <div className="mt-2 flex flex-col gap-2">
+                          {row.description ? (
+                            <p className="whitespace-pre-line text-small text-text">
+                              {row.description}
+                            </p>
+                          ) : null}
+                          {row.url ? (
+                            <a
+                              href={row.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-small text-primary underline"
+                            >
+                              Buka tautan
+                            </a>
+                          ) : null}
+                        </div>
+                      </details>
+                    ) : null}
 
-                      {canManage ? (
-                        <Link
-                          href={`/schedule/${row.id}/edit`}
-                          className="mt-1 text-small text-primary underline"
-                        >
-                          Ubah
-                        </Link>
-                      ) : null}
-                    </article>
-                  </ListItem>
+                    {canManage ? (
+                      <Link
+                        href={`/schedule/${row.id}/edit`}
+                        className="mt-1 text-small text-primary underline"
+                      >
+                        Ubah
+                      </Link>
+                    ) : null}
+                  </article>
                 );
               })}
-            </List>
+            </div>
           </Section>
         ))
       )}

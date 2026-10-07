@@ -13,20 +13,27 @@ export type CardTier = 'primary' | 'secondary' | 'tertiary';
 
 /**
  * Primer  — informasi yang harus terbaca pertama di halamannya. Garis tertebal,
- *           glow warna primary, bayangan tinggi saat disentuh.
+ *           glow warna primary.
  * Sekunder— kelompok informasi utama. Garis tegas, bayangan rendah.
- * Tersier — pendukung. Garis tipis, datar sampai disentuh.
+ * Tersier — pendukung. Garis tipis, tanpa bayangan.
  *
- * `hover:` hanya mengubah bayangan; lift dan up-size-nya seragam dan berasal
- * dari `.card-interactive` (§7.9: motion yang seragam lebih terbaca sebagai
- * umpan balik interaksi daripada sebagai dekorasi).
+ * Kelas tingkat sengaja TIDAK memuat satu pun `hover:`. Efek hover (bayangan,
+ * lift, up-size) hanya boleh muncul pada card yang benar-benar bisa diklik, dan
+ * itu ditandai terpisah oleh `.card-interactive`. Kalau `hover:shadow-*` ditulis
+ * di sini, card teks yang tidak bisa diklik ikut bereaksi — persis sinyal palsu
+ * yang harus dihindari.
+ *
+ * `card-cell` menandai "elemen ini sebuah card", dan itu dipakai `.card-grid`
+ * untuk menentukan sel mana yang mengisi kolom. Penanda ini harus terpisah dari
+ * `.card-interactive`: mengisi sel grid adalah soal *card*, sedangkan bisa
+ * diklik adalah soal *interaksi*, dan banyak card benar untuk yang pertama tapi
+ * tidak untuk yang kedua.
  */
 export const CARD_TIER_CLASSES: Record<CardTier, string> = {
-  primary:
-    'rounded-lg border-2 border-primary bg-surface shadow-glow hover:shadow-glow-high',
+  primary: 'card-cell card-tier-primary rounded-lg border-2 border-primary bg-surface shadow-glow',
   secondary:
-    'rounded-lg border border-border-strong bg-surface shadow-low hover:shadow-medium',
-  tertiary: 'rounded-md border border-border-subtle bg-surface hover:shadow-low',
+    'card-cell card-tier-secondary rounded-lg border border-border-strong bg-surface shadow-low',
+  tertiary: 'card-cell card-tier-tertiary rounded-md border border-border-subtle bg-surface',
 };
 
 export const CARD_BASE = '';
@@ -69,16 +76,16 @@ export function Card({
 }
 
 /**
- * Grid dua kolom untuk deretan card.
+ * Deretan dua kolom untuk card.
  *
  * Satu kolom di mobile, dua kolom seragam dari 1024px, dan card terakhir pada
- * jumlah ganjil melebar penuh supaya tidak ada setengah baris kosong. Aturan
- * kolomnya ada di `globals.css` (`.card-grid`) karena butuh pemilih
- * `:last-child:nth-child(odd)` yang tidak bisa dinyatakan sebagai utility tanpa
- * nilai arbitrer.
+ * jumlah ganjil melebar sendiri mengisi barisnya (`flex-grow` di `.card-grid`,
+ * `globals.css`) sehingga tidak ada sel kosong yang tertinggal. Anak yang bukan
+ * card tetap melebar penuh, jadi judul halaman dan bilah filter tidak ikut
+ * terbagi dua kolom.
  *
  * Dipakai hanya kalau section-nya memang lebih dari satu; satu card sendirian
- * tidak perlu dibungkus grid.
+ * tidak perlu dibungkus.
  */
 export function CardGrid({ className = '', children }: { className?: string; children: ReactNode }) {
   return <div className={`card-grid ${className}`}>{children}</div>;

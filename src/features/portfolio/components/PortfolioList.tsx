@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { signMany } from '@/lib/storage/sign';
 import { SignedImage } from '@/components/storage/SignedImage';
-import { List, ListItem } from '@/components/ui/Section';
+import { CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { formatDateOnly } from '@/lib/time';
 import { PORTFOLIO_KIND_LABEL, type PortfolioKind } from '../schemas';
 import type { PortfolioRow } from '../queries';
@@ -17,6 +17,10 @@ function kindLabel(kind: string): string {
  * Media ditandatangani sekali untuk seluruh item (batch), bukan per item, supaya
  * halaman dengan banyak item tidak membuka N+1 permintaan Storage. Path yang tidak
  * terlihat tidak mungkin ada di sini karena barisnya sudah disaring RLS.
+ *
+ * Tiap karya adalah satu unit informasi, jadi tiap karya punya kartunya sendiri di
+ * dalam kartu kategori milik section-nya. Kartu ini TIDAK menerima hover: yang
+ * bisa diklik hanya tautan "Buka tautan" di dalamnya, bukan seluruh kartunya.
  */
 export async function PortfolioList({ items }: { items: PortfolioRow[] }) {
   if (items.length === 0) {
@@ -35,11 +39,14 @@ export async function PortfolioList({ items }: { items: PortfolioRow[] }) {
   );
 
   return (
-    <List>
+    <div className="flex flex-col gap-3">
       {items.map((item) => {
         const mediaUrl = item.media_path ? signed.get(item.media_path) : undefined;
         return (
-          <ListItem key={item.id} className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <article
+            key={item.id}
+            className={`${CARD_TIER_CLASSES.tertiary} flex flex-col gap-3 p-4 sm:flex-row sm:items-start`}
+          >
             {mediaUrl ? (
               <SignedImage
                 src={mediaUrl}
@@ -69,9 +76,9 @@ export async function PortfolioList({ items }: { items: PortfolioRow[] }) {
                 </a>
               ) : null}
             </div>
-          </ListItem>
+          </article>
         );
       })}
-    </List>
+    </div>
   );
 }

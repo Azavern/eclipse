@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Button, ButtonLink, IconButton } from '@/components/ui/Button';
 import { Input, Select, Textarea } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
@@ -10,6 +11,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState, ErrorState, NoAccess } from '@/components/ui/States';
 import { SkeletonList, SkeletonText } from '@/components/ui/Skeleton';
 import { PageHeader, Section } from '@/components/ui/Section';
+import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
 import { Disclosure, DisclosureItem } from '@/components/ui/Disclosure';
 import { Check, Clock, Trash2, X } from 'lucide-react';
@@ -217,6 +219,40 @@ export function StateGallery() {
       <Section tier="tertiary" title="Skeleton (bentuk konten sebenarnya, tanpa animasi)">
         <SkeletonText lines={2} />
         <SkeletonList rows={2} />
+      </Section>
+
+      <Section
+        tier="secondary"
+        title="Kartu unit di dalam kartu kategori"
+        description="Kartu besar = kategori informasi; kartu kecil = satu unit di dalamnya."
+      >
+        {/*
+          Pola yang dipakai halaman berisi daftar informasi: kartu kategori
+          (Section) tetap datar dan tidak bisa diklik, sedangkan tiap unit
+          di dalamnya berdiri sendiri sebagai kartu kecil.
+
+          Hanya unit yang benar-benar bisa diklik yang memasang
+          `CARD_INTERACTIVE`. Unit teks biasa tidak — kalau ikut terangkat saat
+          disentuh, gerakannya menjanjikan sesuatu yang tidak terjadi.
+        */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className={`${CARD_TIER_CLASSES.tertiary} flex flex-col gap-1 p-4`}>
+            <span className="text-body font-semibold text-text">Unit teks</span>
+            <span className="text-small text-text-muted">
+              Tidak bisa diklik. Tidak ada hover — kursor masuk, tidak ada yang bergerak.
+            </span>
+          </div>
+
+          <Link
+            href="/dev/ui"
+            className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex flex-col gap-1 p-4`}
+          >
+            <span className="text-body font-semibold text-text">Unit yang bisa diklik</span>
+            <span className="text-small text-text-muted">
+              Satu-satunya unit di sini yang terangkat dan berbayangan saat disentuh.
+            </span>
+          </Link>
+        </div>
       </Section>
 
       <Section tier="tertiary" title="Transition (spesifikasi tertulis, bukan frame)">

@@ -1,3 +1,4 @@
+import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { SOCIAL_PLATFORM_LABEL, type SocialPlatformName } from '@/lib/social';
 import type { SocialLinkRow } from '../queries';
 
@@ -19,6 +20,10 @@ export function socialLinkName(link: SocialLinkRow): string {
  *
  * Tautan keluar selalu `noopener noreferrer` supaya halaman tujuan tidak
  * mengambil alih jendela ini atau membaca `window.opener` (§9).
+ *
+ * Tiap tautan adalah satu unit informasi, dan seluruh permukaan kartunya memang
+ * bisa diklik — jadi inilah salah satu tempat yang memasang `CARD_INTERACTIVE`:
+ * hover di sini menjanjikan sesuatu yang benar-benar terjadi.
  */
 export function SocialLinks({ links }: { links: SocialLinkRow[] }) {
   if (links.length === 0) {
@@ -30,20 +35,19 @@ export function SocialLinks({ links }: { links: SocialLinkRow[] }) {
   }
 
   return (
-    <ul className="flex flex-col">
+    <div className="flex flex-col gap-3">
       {links.map((link) => (
-        <li key={link.id} className="border-t border-border-subtle py-3 first:border-t-0">
-          <a
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-body text-primary underline"
-          >
-            {socialLinkName(link)}
-            <span className="ms-2 text-small text-text-muted">{link.platform}</span>
-          </a>
-        </li>
+        <a
+          key={link.id}
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex flex-col gap-0.5 p-4`}
+        >
+          <span className="text-body font-semibold text-text">{socialLinkName(link)}</span>
+          <span className="text-small text-text-muted">{link.platform}</span>
+        </a>
       ))}
-    </ul>
+    </div>
   );
 }

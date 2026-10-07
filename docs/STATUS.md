@@ -1096,18 +1096,85 @@ mana teks, mana tombol, dan mana kelompok informasi.
 - **`Section` sekarang card**, dan `tier` sengaja **wajib**: prioritas tiap
   section adalah keputusan per halaman, dan nilai bawaan akan membuat semuanya
   tampak sama kuat.
-- **Grid** lewat `.card-grid`. Anak grid yang bukan card — `PageHeader`, bilah
-  filter, empty state — melebar penuh, jadi grid hanya membagi card dan chrome
-  halaman tetap satu kolom. Card terakhir pada jumlah ganjil juga melebar penuh.
-- **Motion** lewat `.card-interactive`: lift 4 px + up-size 2 %, dengan transisi
-  hanya pada transform/shadow/border. Tombol: lift 2 px + shadow.
+- **Deretan card** lewat `.card-grid`: `flex-wrap`, satu kolom di mobile dan dua
+  kolom seragam dari 1024 px. Memakai flex dan bukan `display: grid` justru
+  karena `flex-grow` membuat card terakhir pada jumlah ganjil melebar mengisi
+  barisnya dengan sendirinya — tanpa menghitung ganjil-genap. Anak yang bukan
+  card (`PageHeader`, bilah filter, empty state) selalu melebar penuh, jadi
+  chrome halaman tetap satu kolom dan deretannya hanya membagi card.
+- **Penanda sel adalah `card-cell`, bukan `card-interactive`.** Mengisi sel itu
+  soal *card*; bisa diklik itu soal *interaksi* — banyak card benar untuk yang
+  pertama dan tidak untuk yang kedua.
+- **Motion hanya untuk yang bisa diklik** (`.card-interactive`): lift 4 px +
+  up-size 2 %, transisi hanya pada transform/shadow/border. Tombol: lift 2 px +
+  shadow.
 - **Cakupan halaman: seluruh 26 route.** 19 file memakai `Section` berjenjang;
   halaman form/tool (`/*/new`, `/*/[id]/edit`, `/settings/members`,
   `/settings/theme`, `/settings/visibility`) memakai `CARD_BASE` +
   `CARD_TIER_CLASSES.primary` langsung, jadi tidak ada daftar kelas yang
-  disalin; `/events` dan `/tasks` meneruskan kelas card lewat `className` milik
-  `List`. `/dev/ui` menumpang gallery-nya yang sudah ber-card. Sisa satu-satunya
-  tanpa card: tidak ada.
+  disalin. `/dev/ui` menumpang gallery-nya, yang sekaligus mendokumentasikan
+  pola kategori + unit di bawah.
+
+### Koreksi dari Knotus: yang perlu card itu isi informasinya, bukan blok halaman
+
+Dua koreksi, dan keduanya benar:
+
+1. **Hover tidak boleh ada di semua card, hanya yang bisa diklik.** Versi
+   pertama memasang lift di setiap card, termasuk card teks yang tidak bisa
+   diklik: kursor masuk, cardnya melompat, lalu tidak terjadi apa-apa.
+2. **Membungkus blok halaman dengan card bukan yang diminta.** Yang perlu card
+   adalah **isi informasi**-nya: tiap unit informasi jadi kartu kecil, dibungkus
+   **satu kartu kategori yang lebih sederhana**. Versi pertama hanya membungkus
+   `PageHeader` + satu form dalam satu kartu besar, sementara unit isinya tetap
+   daftar dan pemisah garis.
+
+Perbaikan yang dikerjakan:
+
+- **Hover dipisah dari gaya visual.** `CARD_TIER_CLASSES` sekarang tidak memuat
+  satu pun `hover:`; lift, up-size, dan bayangan-saat-disentuh hanya dipasang
+  lewat `.card-interactive`, dan `Card`/`Section` baru memakainya kalau prop
+  `interactive` diminta.
+- **Model isi diperbaiki** di semua tempat yang isinya memang deretan unit
+  informasi — sebelumnya semuanya baris yang hanya dipisah garis di dalam satu
+  kartu besar, sehingga tiap unit tidak punya batas sendiri:
+  - `/settings` — kartu kategori per siapa-yang-boleh-mengubah, kartu unit per
+    halaman pengaturan (unit = tautan, jadi memasang `CARD_INTERACTIVE`).
+  - `/tasks` dan `/events` — kartu unit per tugas/event.
+  - `/schedule` — kartu unit per mata kuliah.
+  - `PortfolioList` — kartu unit per karya.
+  - `SocialLinks` — kartu unit per tautan sosial (seluruh permukaannya bisa
+    diklik, jadi `CARD_INTERACTIVE` di sini bukan sinyal palsu).
+  - `HomeSections` daftar agenda — kartu unit per agenda; **hanya** entri yang
+    punya tujuan yang memasang `CARD_INTERACTIVE`, entri tanpa tautan diam.
+  - `/class` daftar tautan kelas — kartu unit per tautan.
+- **`List` dan `ListItem` dihapus** dari `Section.tsx`. Setelah seluruh pemakaian
+  di atas dikonversi, keduanya tidak punya konsumen lagi (§6: jangan tinggalkan
+  kode mati), dan membiarkannya berarti menyisakan jalan kembali ke pola
+  pemisah-garis yang baru saja ditinggalkan.
+- **Polanya didokumentasikan di `/dev/ui`**: satu kartu kategori berisi dua kartu
+  unit — satu unit teks yang tidak bereaksi terhadap hover, satu unit bertaut
+  yang terangkat.
+
+Sisa section yang **bukan** bentuk ini memang bukan deretan unit: `/class`,
+`/settings/profile`, dan `/tasks/[id]` berisi satu form atau satu blok teks per
+kartu kategori, jadi kartu kategorinya sekaligus kartu isinya — bukan blok
+halaman yang dibungkus tanpa alasan.
+
+### Dua bug yang ditemukan saat mengoreksi
+
+1. **`hover:shadow-*` masih bocor ke card yang tidak bisa diklik.** Lift dan
+   up-size sudah dipisah, tetapi bayangan hover masih tertinggal di
+   `CARD_TIER_CLASSES`, jadi kartu teks tetap berubah bayangannya saat disentuh.
+   Terukur di peramban: `boxShadow` berubah walaupun `transform` tetap `none`.
+2. **Deretan card runtuh jadi satu kolom.** Aturan `.card-grid >
+   :not(.card-interactive)` memakai *bisa-diklik* sebagai penanda *card*; begitu
+   hover dipisah, setiap card yang tidak bisa diklik ikut dianggap bukan card
+   dan dipaksa melebar penuh. Terukur: card **1104 px** dari lebar isi grid
+   **1152 px** — dua kolom hilang, walau `transform` hover sudah benar.
+   Diperbaiki dengan penanda `card-cell` yang terpisah, dan deretannya dipindah
+   ke flex supaya sisa baris tidak perlu dihitung dengan `:nth-child` (aturan itu
+   rapuh: begitu ada anak bukan-card ikut masuk, hitungannya bergeser dan
+   meninggalkan satu sel kosong).
 
 ### Bug yang ikut ditemukan: `bg-surface-dim` tidak pernah ada
 
@@ -1136,35 +1203,68 @@ DESIGN.md §9 menyebut *"hover-lift on every card"* sebagai anti-pola, dan
 `globals.css` sebelumnya menulis "Tidak ada hover-lift atau fade-in per section".
 Permintaan Knotus menimpanya (DESIGN.md §11: instruksi eksplisit mengalahkan
 default §9). Yang tidak dikompromikan: motion tetap satu bahasa (seragam di semua
-card, bukan variasi acak), glow hanya menandai card Primer sehingga ia sinyal
+card **yang bisa diklik**, bukan variasi acak), glow hanya menandai card Primer sehingga ia sinyal
 prioritas dan bukan dekorasi, dan `prefers-reduced-motion` tetap menekan durasi ke
 0.01 ms lewat aturan global yang sudah ada.
 
 ### Verifikasi
 
 `lint`, `typecheck`, `test` (13 file, 161 tes), `check:tokens`,
-`check:boundaries`, dan `build`: semua keluar 0. **23 cek Chrome** (Playwright
-sementara, dihapus setelah dipakai), semuanya lulus:
+`check:boundaries`, dan `build`: semua keluar 0 — dijalankan **setelah** koreksi
+terakhir. Cek peramban memakai Playwright sementara (dihapus setelah dipakai),
+Chrome:
 
-- `/dev/ui` @1280 px: 8 card, grid 2 kolom (`540px 540px`); tingkat Primer
-  bergaris **2 px**, Tersier **1 px**; radius berbeda antar tingkat (16 px vs
-  8 px); satu tingkat sengaja datar tanpa bayangan.
-- Hover card: bayangan muncul dan `transform` menjadi
-  `matrix(1.02, 0, 0, 1.02, 0, -4)`.
+- **22 cek di `/dev/ui`**: 9 card + header membentuk 6 baris; yang melebar penuh
+  hanya header dan card terakhir (jumlah card ganjil), 8 dari 9 card tepat
+  setengah lebar; tingkat Primer bergaris **2 px** dan Tersier **1 px**, radius
+  berbeda antar tingkat (16 px vs 8 px), Tersier datar tanpa bayangan dan
+  Sekunder punya bayangan dasar; 3 card → dua
+  sebaris lalu card ketiga **melebar penuh mengisi barisnya** (488 + 488 + 24 =
+  1000 px, tidak ada sel kosong); header di dalam deretan tetap membuat card
+  terbagi dua (628 + 628 = 1280); card **tidak-bisa-diklik tidak bergerak dan
+  bayangannya tidak berubah**; card bisa-diklik terangkat ke
+  `matrix(1.02, 0, 0, 1.02, 0, -4)` dan bayangannya berubah; @700 px jadi satu
+  kolom dengan setiap anak di barisnya sendiri; `prefers-reduced-motion` menekan
+  durasi ke `1e-05s`.
+- **11 cek pola kategori + unit** di `/dev/ui`: kartu kategori bergaris sekunder
+  dan **tidak** bisa diklik; dua kartu unit tersier di dalamnya; hanya unit
+  bertaut yang punya `card-interactive` dan terangkat; unit teks tidak bereaksi.
+- **13 cek verifikasi akhir** (dijalankan di dev **dan** build produksi, setelah
+  `List`/`ListItem` dihapus): `/`, `/class`, `/login`, `/dev/ui` tetap merender
+  tanpa error (dicek dari teks yang **terlihat**, bukan HTML mentah — app-router
+  selalu menyerialkan boundary not-found ke payload RSC, jadi string "This page
+  could not be found" ada di sumber setiap halaman sehat); layout 9 kartu → 6
+  baris dengan 8 kartu setengah lebar; kartu tidak-bisa-diklik tetap diam; kartu
+  bisa-diklik tetap terangkat; hero beranda dan `/class` tetap kartu. Di
+  produksi `/dev/ui` memang 404, jadi cek layout jatuh ke `/class`.
+- **13 cek di build produksi**: `.card-cell` dan `.card-tier-*` benar-benar ada
+  di CSS hasil bundel dan perilaku hover bertahan di bundel produksi.
 - Hover tombol: `translate` menjadi `0px -2px` dan bayangan muncul.
 - Toggle di `/login` bergaris 1 px dan berlatar `surface` — bukan lagi teks.
-- `/`, `/class`, `/login`: HTTP 200, halaman tidak rusak, card ada.
-- @700 px grid menjadi 1 kolom.
-- `PageHeader` di `/class` melebar penuh pada 1280 px dan 1440 px.
-- `prefers-reduced-motion: reduce` → durasi transisi card `1e-05s`.
+- `/`, `/class`, `/login`: HTTP 200, halaman tidak rusak, card ada; `PageHeader`
+  di `/class` melebar penuh pada 1280 px dan 1440 px.
+
+Catatan: Next.js dev-tools menyuntik inline style yang diblokir CSP miliknya
+sendiri — **33 pelanggaran di setiap route, termasuk `/`**, semuanya berasal dari
+`next-devtools_index.js` (diperiksa lewat listener `securitypolicyviolation`,
+bukan dari teks pesan). Itu artefak mode dev: build produksi **0 error**.
 
 ### Yang TIDAK terverifikasi
 
 - Halaman yang butuh sesi — `/members`, `/members/[username]`, `/schedule`,
-  `/tasks/[id]`, `/settings/**`, dan beranda dalam keadaan masuk — hanya
-  diperiksa lewat typecheck, build, dan smoke HTTP (semua 26 route menjawab 200
-  sebagai anonim, tidak ada 500), bukan render dengan akun sungguhan. Yang
-  benar-benar dirender lengkap di peramban: `/`, `/class`, `/login`, `/dev/ui`.
+  `/tasks`, `/tasks/[id]`, `/events`, `/settings/**`, dan beranda dalam keadaan
+  masuk — **dialihkan ke `/login` untuk pengunjung anonim**, jadi isinya tidak
+  pernah ter-render tanpa akun sungguhan. Yang benar-benar dirender di peramban:
+  `/`, `/class`, `/login`, `/dev/ui`. Artinya kartu unit di `/tasks`, `/events`,
+  `/schedule`, `PortfolioList`, `SocialLinks`, dan `/class` bagian tautan baru
+  terbukti lewat typecheck, build, dan kecocokan pola dengan yang sudah
+  diverifikasi di `/dev/ui` — bukan render halaman aslinya. Proyek ini belum punya
+  harness e2e atau helper sesi (`tests/` hanya `unit/`), jadi menutup celah ini
+  butuh Fase 7.
+- **`/class` bagian tautan belum pernah ter-render**: untuk pengunjung anonim
+  daftar tautannya kosong ("Belum ada tautan yang ditambahkan"), jadi konversinya
+  ke kartu unit tidak bisa dilihat tanpa sesi. Begitu juga `SocialLinks` dan
+  `PortfolioList` yang butuh halaman anggota.
 - Beranda tetap satu kolom: urutan section-nya ditentukan preset tata letak yang
   dipilih Ketua, dan salah satu slotnya bisa kosong — kalau dipaksa jadi grid,
   slot kosong itu mengambil satu sel. Jadi kartu berjenjangnya berlaku, gridnya
