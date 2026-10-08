@@ -5,6 +5,7 @@ import { getTasks } from '@/features/tasks/queries';
 import { TASK_STATUS_LABEL, toTaskStatus } from '@/features/tasks/schemas';
 import { TASK_DISPLAY_META } from '@/features/tasks/display';
 import { TaskCompleteForm } from '@/features/tasks/components/TaskCompleteForm';
+import { TaskDeleteButton } from '@/features/tasks/components/TaskDeleteButton';
 import { taskDisplayStatus } from '@/lib/time/domain';
 import { formatDateTime } from '@/lib/time';
 import { PageHeader } from '@/components/ui/Section';
@@ -126,9 +127,15 @@ export default async function TasksPage({
             const urgent = display === 'overdue' || display === 'due_soon';
 
             return (
+              /*
+                Satu baris = satu unit: judul + status, ringkasan, lalu aksi.
+                Di mobile ketiganya ditumpuk — versi sebelumnya memaksa ketiganya
+                berdampingan sehingga saling menghimpit di layar sempit. Barulah
+                mulai `sm` ketiganya berdampingan lagi dengan aksi di ujung kanan.
+              */
               <article
                 key={task.id}
-                className={`${CARD_TIER_CLASSES.tertiary} flex justify-between gap-3 p-4`}
+                className={`${CARD_TIER_CLASSES.tertiary} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <h2
@@ -145,16 +152,23 @@ export default async function TasksPage({
                   {task.target}
                 </p>
                 {/*
-                  Aksi hanya dirender kalau memang bisa dipakai: tombol centang
-                  butuh `tasks.manage` (gate yang sama dengan `setTaskStatus`) dan
-                  hanya masuk akal selama tugasnya masih aktif. Tugas yang sudah
-                  selesai atau diarsipkan tidak diberi tombol mati — statusnya
-                  sudah dibawa Badge di atas, dan mengaktifkan lagi tersedia di
-                  halaman detail.
+                  Aksi hanya dirender kalau memang bisa dipakai: keduanya butuh
+                  `tasks.manage` (gate yang sama dengan aksinya di server) dan
+                  hanya masuk akal selama tugasnya masih aktif. Untuk tugas aktif,
+                  tombolnya mengikuti tenggat: yang sudah lewat tenggat ditawari
+                  hapus karena barisnya tidak lagi relevan dikerjakan, sedangkan
+                  yang belum ditawari tandai selesai. Tugas yang sudah selesai
+                  atau diarsipkan tidak diberi tombol mati — statusnya sudah
+                  dibawa Badge di atas, dan mengaktifkan lagi tersedia di halaman
+                  detail.
                 */}
                 <div className="flex flex-wrap items-center gap-2">
                   {canManage && task.status === 'active' ? (
-                    <TaskCompleteForm id={task.id} title={task.title} />
+                    display === 'overdue' ? (
+                      <TaskDeleteButton id={task.id} title={task.title} />
+                    ) : (
+                      <TaskCompleteForm id={task.id} title={task.title} />
+                    )
                   ) : null}
                   <ButtonLink href={`/tasks/${task.id}`} variant="secondary">
                     Detail

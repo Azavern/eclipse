@@ -1338,6 +1338,76 @@ tempatnya ("setiap primitive pada setiap state").
 
 ---
 
+## Tombol hapus untuk tugas lewat tenggat (8 Oktober 2026)
+
+Permintaan Knotus: (1) tugas yang sudah lewat tenggat tapi belum selesai jangan
+ditawari tombol centang, melainkan tombol X untuk menghapus; (2) baris daftar
+tugas ditata ulang karena di layar sempit terasa berhimpit.
+
+### Yang berubah
+
+- **`TaskDeleteButton`** (`src/features/tasks/components/TaskDeleteButton.tsx`,
+  baru): tombol ikon X (`IconButton` varian `danger`, nama aksesibel
+  "Hapus tugas: <judul>") yang membuka `ConfirmDialog` lalu memanggil
+  `deleteTask`. Modul terpisah dengan alasan yang sama seperti
+  `TaskCompleteForm`: daftar tidak perlu mengirim seluruh isi `TaskForm.tsx`
+  hanya demi satu tombol (§12).
+- **`/tasks`**: untuk tugas berstatus `active`, tombolnya sekarang mengikuti
+  tenggat. `display === 'overdue'` (lewat tenggat, belum selesai) mendapat
+  tombol Hapus; sisanya tetap tombol Tandai selesai.
+- **Tata letak baris `/tasks`**: dari `flex justify-between gap-3` (tiga kluster
+  berdesakan dalam satu baris) menjadi
+  `flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`.
+  Di mobile judul + badge, ringkasan, dan aksi bertumpuk; mulai `sm` ketiganya
+  berdampingan lagi dengan aksi di ujung kanan. Ini mengikuti pola yang sudah
+  ada di `PortfolioList` dan `ScheduleFilters` (`flex-col` → `sm:flex-row`).
+
+### Keputusan yang perlu diketahui
+
+- **Memakai `deleteTask` apa adanya, termasuk `redirect('/tasks')` di
+  ujungnya.** Baris lewat tenggat hanya bisa muncul di tab Aktif (`/tasks`):
+  `overdue` dihitung dari status tersimpan `active` + tenggat lewat, sedangkan
+  tab Selesai dan Arsip memuat status tersimpan lain. Jadi redirect-nya
+  mendarat di URL yang sama, dengan data segar dari `revalidatePath`.
+  Menambah varian aksi yang tidak me-redirect hanya akan menggandakan logika
+  otorisasi tanpa manfaat.
+- **Hapus selalu lewat `ConfirmDialog`** dengan konsekuensi eksplisit ("dihapus
+  permanen dan tidak dapat dibatalkan"), sama seperti tombol Hapus di halaman
+  edit — aksi ini tidak bisa dibatalkan, jadi tidak boleh sekali klik.
+- **Gerbang `tasks.manage` tidak dilonggarkan.** Tombolnya hanya dirender saat
+  `canManage`, dan aksinya tetap memakai gate yang sama di server.
+- `FormStatus` tetap dipasang di komponen ini. Jalur sukses berakhir pada
+  redirect sehingga toastnya praktis tidak muncul, tapi kegagalan
+  ("Tugas tidak terhapus. Coba lagi.") tidak hilang diam-diam.
+
+### Verifikasi
+
+`check:tokens`, `check:boundaries`, `lint`, `typecheck`, `test` (13 file, 161
+tes), dan `build`: semua keluar 0. Manifest hasil build untuk `/tasks` memuat
+`TaskDeleteButton` (dan tetap tidak memuat `TaskForm`).
+
+Tombolnya **dirender sungguhan di Chrome** lewat galeri `/dev/ui` (mount
+sementara lalu dikembalikan; skrip Playwright sementara lalu dihapus), 8 cek:
+
+- Target sentuh 44×44 px, ikon `aria-hidden`, `aria-label` = `title` =
+  "Hapus tugas: Contoh tugas"; saat diam tidak `disabled` dan tanpa `aria-busy`.
+- Bisa difokus keyboard; Enter membuka dialog.
+- Dialog berjudul "Hapus Contoh tugas?", berisi kalimat konsekuensi, dengan
+  tombol "Hapus tugas" (`danger`) dan "Batal".
+- Escape menutup dialog dan fokus kembali ke tombol pemicu; tidak ada error
+  runtime di halaman.
+
+### Yang TIDAK terverifikasi
+
+- **Halaman `/tasks` sendiri tidak pernah ter-render** (butuh sesi; anonim
+  dialihkan ke `/login?next=%2Ftasks`, dan belum ada harness e2e/helper sesi).
+  Jadi susunan baris di mobile/desktop, tombol mana yang muncul per baris, dan
+  efek hapus + `revalidatePath` di daftar nyata baru terbukti lewat typecheck,
+  build, dan render komponennya di galeri — bukan render halaman aslinya.
+- Aksi hapus tidak pernah dijalankan terhadap data sungguhan; verifikasi berhenti
+  di dialog konfirmasi.
+
+---
 ## Desain Stitch vs blueprint
 
 Ekspor Stitch tersedia di `stitch_ui_system/` (16 layar + `DESIGN.md` sistem
