@@ -62,7 +62,10 @@ export function buildScheduleSchema() {
     .object({
       title: requiredText(1, 120, 'Judul'),
       description: optionalText(1000, 'Deskripsi'),
-      day_of_week: z.string().trim().regex(/^[1-7]$/, 'Pilih hari dari daftar'),
+      day_of_week: z
+        .string()
+        .trim()
+        .regex(/^[1-7]$/, 'Pilih hari dari daftar'),
       start_time: z
         .string()
         .trim()
@@ -71,10 +74,7 @@ export function buildScheduleSchema() {
         .string()
         .trim()
         .regex(TIME_PATTERN, 'Jam selesai harus dalam bentuk 09:40 (24 jam)'),
-      semester: z
-        .string()
-        .trim()
-        .refine(isSemester, 'Semester harus seperti "2026/2027 Ganjil"'),
+      semester: z.string().trim().refine(isSemester, 'Semester harus seperti "2026/2027 Ganjil"'),
       location: optionalText(120, 'Lokasi'),
       type: z.enum(SCHEDULE_TYPES),
       url: optionalText(2048, 'Tautan').refine(
@@ -90,3 +90,84 @@ export function buildScheduleSchema() {
 }
 
 export type ScheduleValues = z.output<ReturnType<typeof buildScheduleSchema>>;
+
+/**
+ * Jumlah jadwal maksimum dalam satu kali simpan. Batasnya kecil dengan sengaja:
+ * fiturnya untuk mengisi beberapa mata kuliah sekaligus, bukan impor massal.
+ */
+export const MAX_SCHEDULE_ROWS = 10;
+
+/**
+ * Skema form multi-jadwal: satu semester dipilih sekali untuk semua baris, lalu
+ * setiap baris memakai aturan jadwal yang sama dengan form satu jadwal.
+ *
+ * Aksi menyalin semester bersama ke tiap baris sebelum validasi, jadi tidak ada
+ * aturan kedua yang bisa menyimpang dari `buildScheduleSchema`.
+ */
+export function buildScheduleListSchema() {
+  return z.object({
+    semester: z.string().trim().refine(isSemester, 'Semester harus seperti "2026/2027 Ganjil"'),
+    rows: z
+      .array(buildScheduleSchema())
+      .min(1, 'Tambahkan minimal satu jadwal.')
+      .max(MAX_SCHEDULE_ROWS, `Maksimal ${MAX_SCHEDULE_ROWS} jadwal sekali simpan.`),
+  });
+}
+
+/** Field satu baris form multi-jadwal; semester dipilih sekali di luar baris. */
+const SCHEDULE_ROW_FIELDS = [
+  'title',
+  'description',
+  'day_of_week',
+  'start_time',
+  'end_time',
+  'location',
+  'type',
+  'url',
+] as const;
+
+/**
+ * Nama input baris ke-`index`: `title-0`, `start_time-1`, ….
+ * Dipakai form (nama input) dan pembacaan FormData dari sumber yang sama,
+ * supaya keduanya tidak bisa menyimpang.
+ */
+export function scheduleRowField(field: string, index: number): string {
+  return `${field}-${index}`;
+}
+
+export type RawScheduleRow = {
+  /** Nomor asli dari nama field (`title-2` → 2), dipakai untuk pesan error form. */
+  index: number;
+  values: Record<string, string>;
+};
+
+/** FormData bisa memuat `File`; nilainya bukan teks. */
+function asText(value: FormDataEntryValue | null): string {
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * FormData → baris multi-jadwal bernomor.
+ *
+ * Nomor baris diambil dari field `title-<n>` karena judul wajib ada di setiap
+ * baris; baris tanpa judul tidak dikarang di sini, melainkan ditolak skema.
+ * Jumlahnya tidak dipotong diam-diam: satu baris di atas batas tetap dibaca,
+ * supaya skema bisa menolaknya dengan pesan yang jelas.
+ */
+export function readScheduleRows(fd: FormData): RawScheduleRow[] {
+  const indexes = new Set<number>();
+  for (const key of fd.keys()) {
+    const match = /^title-(\d{1,3})$/.exec(key);
+    if (match) indexes.add(Number(match[1]));
+  }
+
+  return [...indexes]
+    .sort((a, b) => a - b)
+    .slice(0, MAX_SCHEDULE_ROWS + 1)
+    .map((index) => ({
+      index,
+      values: Object.fromEntries(
+        SCHEDULE_ROW_FIELDS.map((field) => [field, asText(fd.get(scheduleRowField(field, index)))]),
+      ),
+    }));
+}

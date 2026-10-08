@@ -33,7 +33,7 @@ export default async function NewSchedulePage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Tambah jadwal"
-        description="Cukup hari dan jam: jadwal berlaku setiap minggu sepanjang semester, jadi tidak perlu diisi ulang tiap minggu."
+        description="Bisa beberapa mata kuliah sekaligus: tekan “Tambah jadwal” untuk menambah baris. Jadwal berlaku setiap minggu sepanjang semester, jadi tidak perlu diisi ulang tiap minggu."
       />
 
       <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>

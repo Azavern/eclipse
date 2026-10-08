@@ -1397,15 +1397,128 @@ sementara lalu dikembalikan; skrip Playwright sementara lalu dihapus), 8 cek:
 - Escape menutup dialog dan fokus kembali ke tombol pemicu; tidak ada error
   runtime di halaman.
 
+### Verifikasi lanjutan dengan sesi sungguhan (8 Oktober 2026)
+
+Kekosongan di bawah ditutup dengan sesi Ketua dan anggota yang sungguhan,
+bukan tiruan: tautan `generateLink(type: 'recovery')` dari Admin API
+diverifikasi di `/auth/confirm` lewat alur aplikasi sendiri, jadi cookie yang
+dipakai browser adalah sesi yang sesungguhnya.
+
+- **Per baris di `/tasks`**: satu tugas uji lewat tenggat dibuat lewat form
+  `/tasks/new`. Barisnya memakai tombol Hapus (X); baris "UTS DSS" yang belum
+  lewat tenggat tetap memakai Tandai selesai; tidak ada baris yang memakai
+  keduanya; tombol X berukuran 44×44 px dengan ikon `aria-hidden`.
+- **Tata letak**: 1280 px → `flex-direction: row` dengan aksi di ujung kanan
+  baris; 360 px → `column`, aksi bertumpuk di bawah judul dan tetap di dalam
+  viewport. Keduanya tanpa gulir horizontal (`scrollWidth == clientWidth`).
+- **Hapus sungguhan**: dialog dikonfirmasi, Server Action POST 200, URL
+  kembali ke `/tasks`, baris hilang dari HTML setelah `revalidatePath`, dan
+  barisnya benar-benar hilang dari database. Hanya tugas uji itu yang dibuat
+  lalu dihapus; tugas asli tidak disentuh.
+- **Gerbang `tasks.manage` di render**: dengan sesi anggota biasa halaman
+  tetap ter-render (visibilitas `page.tasks` mengizinkan) tetapi tanpa satu
+  pun tombol Hapus/Tandai selesai.
+- Bukti tangkapan layar ada di `test-results/verify-tasks/` (1280, 360, dialog).
+
+Dua catatan jujur dari render ini: React mencatat peringatan konsol
+"An async function with useActionState was called outside of a transition" saat dialog memanggil
+aksinya — pola ini sama persis dengan hapus di halaman edit (`EditTaskForm`)
+dan tidak mengubah hasil, hanya status pending internal React yang tidak
+diperbarui; dan CSP di mode dev memunculkan banyak error konsol `style-src`
+(cacat mode dev, bukan halaman ini).
+
 ### Yang TIDAK terverifikasi
 
-- **Halaman `/tasks` sendiri tidak pernah ter-render** (butuh sesi; anonim
-  dialihkan ke `/login?next=%2Ftasks`, dan belum ada harness e2e/helper sesi).
-  Jadi susunan baris di mobile/desktop, tombol mana yang muncul per baris, dan
-  efek hapus + `revalidatePath` di daftar nyata baru terbukti lewat typecheck,
-  build, dan render komponennya di galeri — bukan render halaman aslinya.
-- Aksi hapus tidak pernah dijalankan terhadap data sungguhan; verifikasi berhenti
-  di dialog konfirmasi.
+- **Belum ada harness e2e permanen**: verifikasi di atas memakai skrip
+  sementara yang dihapus setelah selesai, jadi tidak ada tes otomatis yang
+  mengulang alur ini. Fase 7 masih menunggu Playwright yang sesungguhnya.
+- **Non-Ketua tanpa visibilitas `page.tasks`**: yang diuji adalah anggota
+  biasa yang halamannya terlihat; keadaan `NoAccess` belum diuji ulang di sini.
+- **Deployment produksi**: CSP pada domain nyata, cron, dan perilaku produksi
+  lain tetap belum diuji (lihat "Verifikasi pasca-deploy").
+
+---
+## Multi-jadwal: sekali input untuk beberapa mata kuliah (9 Oktober 2026)
+
+Permintaan Knotus: di `/schedule/new`, tombol "+" menambah baris form baru
+supaya beberapa jadwal bisa dibuat dalam sekali simpan — tidak perlu
+bolak-balik mengisi form satu per satu.
+
+### Yang berubah
+
+- **`CreateScheduleForm`** (`src/features/schedule/components/ScheduleForm.tsx`):
+  form tambah kini multi-baris. Satu field **Semester** dipakai bersama semua
+  baris (mata kuliah yang diisi sekaligus memang satu semester, dan redirect
+  setelah simpan jadi tidak ambigu), tiap baris punya label "Jadwal N" +
+  tombol hapus (hanya muncul bila lebih dari satu baris), dan tombol
+  "+ Tambah jadwal" menambah baris sampai batas. Baris disimpan dengan kunci
+  unik supaya menambah/menghapus baris tidak memindahkan isi input yang sudah
+  diketik. Form ubah tetap satu baris seperti sebelumnya.
+- **A11y**: tiap baris dibungkus `role="group"` + `aria-labelledby`; fokus
+  pindah ke judul baris baru saat menambah (dan ke baris yang menggantikan
+  saat menghapus); perubahan diumumkan lewat live region `aria-live="polite"`
+  ("Baris jadwal ke-2 ditambahkan."). Label submit ikut jumlah baris
+  ("Simpan 2 jadwal").
+- **Nama field bernomor** (`title-0`, `start_time-1`, …) lewat `scheduleRowField`
+  di `schemas.ts`, dipakai bersama oleh form dan action supaya keduanya tidak
+  bisa menyimpang.
+- **`createSchedule`** (`actions.ts`): membaca baris dengan `readScheduleRows`,
+  memvalidasi dengan `buildScheduleListSchema` (satu semester + array baris
+  yang tiap barisnya tetap memakai `buildScheduleSchema`), lalu **satu INSERT**
+  berisi semua baris — bila satu baris gagal, tidak ada yang setengah
+  tersimpan. Jumlah baris yang dikembalikan dicocokkan supaya aksi tidak
+  pernah melaporkan sukses untuk baris yang tidak masuk.
+- **Error per baris**: isu baris ke-`n` dipetakan ke `title-0`, `end_time-1`,
+  dst. (`listFieldErrors`); isu semester bersama cukup tampil sekali di field
+  atas; isu jumlah baris (min/max) jadi pesan umum. Isian tetap di-echo lewat
+  `values` sehingga tidak hilang saat validasi gagal.
+- **Batas 10 baris** (`MAX_SCHEDULE_ROWS`): tombol + nonaktif di batas itu dan
+  keterangannya berubah menjadi "Maksimal 10 jadwal sekali simpan."
+- **Copy `/schedule/new`** disesuaikan: "Bisa beberapa mata kuliah sekaligus:
+  tekan 'Tambah jadwal' untuk menambah baris."
+- **Tidak ada perubahan skema database**: setiap baris tetap satu baris
+  `schedules`, jadi tidak ada migrasi baru.
+
+### Verifikasi
+
+`check:tokens`, `check:boundaries`, `lint`, `typecheck`, `test` (13 file,
+**170 tes** — 9 tes baru untuk `buildScheduleListSchema` dan `readScheduleRows`),
+dan `build`: semua keluar 0.
+
+Verifikasi live dengan **sesi Ketua sungguhan** (tautan `generateLink(type:
+'recovery')` diverifikasi lewat `/auth/confirm`, browser Chrome di dev server
+lokal), 27 cek:
+
+- Form awal satu baris + semester berjalan; tombol + menambah baris kedua,
+  fokus pindah ke `schedule-title-1`, live region berisi "Baris jadwal ke-2
+  ditambahkan.", label submit "Simpan 2 jadwal".
+- Submit dua baris → redirect ke `/schedule?semester=…`, kedua judul tampil,
+  dan **dua baris tersimpan** di database dengan hari/jam/lokasi + semester
+  bersama + `class_id` yang benar.
+- Validasi per baris: jam selesai mendahului jam mulai di baris 2 → error
+  tampil di `schedule-end-1-error`, `aria-invalid="true"`, isian kedua baris
+  tetap utuh, dan tidak ada baris yang tertulis ke database.
+- Hapus baris: jumlah group kembali 1 dan fokus pindah ke `schedule-title-0`.
+- Batas: menambah sampai 10 baris berhasil, tombol + nonaktif, keterangan
+  batas tampil.
+- Axe di form dua baris: tidak ada pelanggaran serious/critical. Layout 360 px
+  tidak meluap horizontal (`scrollWidth == innerWidth == 360`).
+- Data uji (2 baris) dihapus lagi setelah verifikasi; baris jadwal yang sudah
+  ada tidak disentuh.
+- Setelah perapian Prettier pada berkas yang diubah, smoke test browser
+  diulang: dua jadwal sekali submit tetap tersimpan, tampil di `/schedule`,
+  lalu dihapus lagi; `check` dan 170 tes juga diulang dan tetap hijau.
+- Form ubah tetap utuh setelah refaktor: dicek dengan sesi Ketua pada baris
+  sementara — field memakai nama tanpa nomor (`title`, bukan `title-0`), terisi
+  nilai lama, dan simpan perubahan berhasil; baris sementara lalu dihapus.
+
+### Yang TIDAK terverifikasi
+
+- Sama seperti fitur lain: belum ada harness e2e permanen; skrip Playwright
+  sementara dihapus setelah dipakai.
+- Perangkat sentuh dan pembaca layar sungguhan tidak diuji; yang diperiksa
+  adalah markup/ARIA, fokus, dan axe lewat browser.
+- Deployment produksi belum diuji.
 
 ---
 ## Desain Stitch vs blueprint

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildScheduleSchema, SCHEDULE_TYPES } from '@/features/schedule/schemas';
+import {
+  buildScheduleListSchema,
+  buildScheduleSchema,
+  MAX_SCHEDULE_ROWS,
+  readScheduleRows,
+  SCHEDULE_TYPES,
+} from '@/features/schedule/schemas';
 import { buildEventSchema } from '@/features/events/schemas';
 import {
   buildTaskSchema,
@@ -53,24 +59,26 @@ describe('buildScheduleSchema', () => {
 
   it('menolak jam yang bukan bentuk 24 jam dua digit', () => {
     for (const start_time of ['25:00', '8:00', '08:60', 'pagi']) {
-      expect(buildScheduleSchema().safeParse({ ...validSchedule, start_time }).success, start_time).toBe(
-        false,
-      );
+      expect(
+        buildScheduleSchema().safeParse({ ...validSchedule, start_time }).success,
+        start_time,
+      ).toBe(false);
     }
   });
 
   it('menolak semester di luar format baku', () => {
     for (const semester of ['Ganjil 2026/2027', '2026/2028 Ganjil', '2026/2027 ganjil', '']) {
-      expect(buildScheduleSchema().safeParse({ ...validSchedule, semester }).success, semester).toBe(
-        false,
-      );
+      expect(
+        buildScheduleSchema().safeParse({ ...validSchedule, semester }).success,
+        semester,
+      ).toBe(false);
     }
   });
 
   it('menolak tautan http dan judul kosong', () => {
-    expect(buildScheduleSchema().safeParse({ ...validSchedule, url: 'http://contoh.id' }).success).toBe(
-      false,
-    );
+    expect(
+      buildScheduleSchema().safeParse({ ...validSchedule, url: 'http://contoh.id' }).success,
+    ).toBe(false);
     expect(buildScheduleSchema().safeParse({ ...validSchedule, title: '   ' }).success).toBe(false);
   });
 
@@ -79,6 +87,102 @@ describe('buildScheduleSchema', () => {
       expect(buildScheduleSchema().safeParse({ ...validSchedule, type }).success, type).toBe(true);
     }
     expect(buildScheduleSchema().safeParse({ ...validSchedule, type: 'lain' }).success).toBe(false);
+  });
+});
+
+describe('buildScheduleListSchema', () => {
+  const shared = { semester: validSchedule.semester };
+
+  it('menerima beberapa jadwal sekaligus dengan satu semester', () => {
+    const parsed = buildScheduleListSchema().safeParse({
+      ...shared,
+      rows: [validSchedule, { ...validSchedule, title: 'Kuliah Basis Data' }],
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.rows).toHaveLength(2);
+    expect(parsed.data.rows[1]?.title).toBe('Kuliah Basis Data');
+    expect(parsed.data.semester).toBe('2026/2027 Ganjil');
+  });
+
+  it('menolak daftar kosong', () => {
+    const parsed = buildScheduleListSchema().safeParse({ ...shared, rows: [] });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues[0]?.message).toContain('minimal satu');
+  });
+
+  it('menolak lebih dari batas baris', () => {
+    const rows = Array.from({ length: MAX_SCHEDULE_ROWS + 1 }, (_, i) => ({
+      ...validSchedule,
+      title: `Jadwal ${i}`,
+    }));
+    const parsed = buildScheduleListSchema().safeParse({ ...shared, rows });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('menunjuk baris yang salah lewat posisinya di daftar', () => {
+    const parsed = buildScheduleListSchema().safeParse({
+      ...shared,
+      rows: [validSchedule, { ...validSchedule, end_time: '07:00' }],
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.some((issue) => issue.path.join('.') === 'rows.1.end_time')).toBe(
+      true,
+    );
+  });
+
+  it('menolak semester bersama yang tidak sesuai format', () => {
+    const parsed = buildScheduleListSchema().safeParse({
+      semester: 'Ganjil 2026/2027',
+      rows: [validSchedule],
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.some((issue) => issue.path[0] === 'semester')).toBe(true);
+  });
+});
+
+describe('readScheduleRows', () => {
+  const fdWith = (entries: Record<string, string>) => {
+    const fd = new FormData();
+    for (const [key, value] of Object.entries(entries)) fd.set(key, value);
+    return fd;
+  };
+
+  it('membaca baris berakhiran -0 dan -1 beserta nilai yang kosong', () => {
+    const rows = readScheduleRows(
+      fdWith({
+        semester: '2026/2027 Ganjil',
+        'title-0': 'Algoritma',
+        'start_time-0': '08:00',
+        'title-1': 'Basis Data',
+        'start_time-1': '10:00',
+      }),
+    );
+    expect(rows.map((row) => row.index)).toEqual([0, 1]);
+    expect(rows[0]?.values.title).toBe('Algoritma');
+    expect(rows[1]?.values.start_time).toBe('10:00');
+    // Field yang tidak dikirim tetap ada sebagai teks kosong, bukan undefined.
+    expect(rows[0]?.values.location).toBe('');
+  });
+
+  it('mengurutkan baris menurut nomornya, bukan urutan field', () => {
+    const rows = readScheduleRows(fdWith({ 'title-1': 'B', 'title-0': 'A' }));
+    expect(rows.map((row) => row.values.title)).toEqual(['A', 'B']);
+  });
+
+  it('mengabaikan field di luar pola baris', () => {
+    const rows = readScheduleRows(fdWith({ semester: '2026/2027 Ganjil', title: 'tanpa nomor' }));
+    expect(rows).toEqual([]);
+  });
+
+  it('membaca satu baris di atas batas supaya skema yang menolaknya', () => {
+    const entries: Record<string, string> = {};
+    for (let i = 0; i < MAX_SCHEDULE_ROWS + 3; i += 1) entries[`title-${i}`] = `Jadwal ${i}`;
+    const rows = readScheduleRows(fdWith(entries));
+    expect(rows).toHaveLength(MAX_SCHEDULE_ROWS + 1);
   });
 });
 
