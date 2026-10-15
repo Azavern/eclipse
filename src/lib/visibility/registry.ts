@@ -20,21 +20,34 @@ export type VisibilityScope = 'class' | 'member';
 export const narrower = (a: Audience, b: Audience): Audience =>
   AUDIENCES.indexOf(a) >= AUDIENCES.indexOf(b) ? a : b;
 
-export const AUDIENCE_LABEL: Record<Audience, string> = {
-  public: 'Siapa saja (publik)',
-  authenticated: 'Semua yang sudah masuk',
-  class_member: 'Anggota kelas',
-  class_admin: 'Pengelola kelas',
-  self: 'Hanya saya',
+/**
+ * Level akses yang boleh dipilih di UI — hanya tiga, dari terluas ke tersempit.
+ *
+ * Ini muka pengguna dari enum `visibility_audience`, bukan pengganti enumnya:
+ * `authenticated` diringkas ke `class_member` karena setiap akun di aplikasi ini
+ * adalah anggota kelas, dan `self` tidak lagi ditawarkan sehingga pilihan
+ * tersempit adalah Ketua. Nilai enum tetap utuh di database (paritas tes), yang
+ * dibatasi hanya opsi yang dirender.
+ */
+export const AUDIENCE_LEVELS = ['public', 'class_member', 'class_admin'] as const;
+
+export type AudienceLevel = (typeof AUDIENCE_LEVELS)[number];
+
+/**
+ * Label opsi; teksnya menyebut level aksesnya supaya hirarki terbaca langsung
+ * dari daftar, tanpa perlu menebak antar `class_member` dan `class_admin`.
+ */
+export const AUDIENCE_LABEL: Record<AudienceLevel, string> = {
+  public: 'Publik — siapa pun',
+  class_member: 'Anggota — semua yang login',
+  class_admin: 'Ketua — hanya admin',
 };
 
 /** Penjelasan singkat yang muncul di bawah select, bukan warna saja. */
-export const AUDIENCE_HINT: Record<Audience, string> = {
-  public: 'Dapat dilihat siapa saja, termasuk pengunjung yang belum masuk.',
-  authenticated: 'Hanya bagi yang sudah masuk ke akunnya.',
-  class_member: 'Hanya anggota kelas yang statusnya aktif.',
-  class_admin: 'Hanya pengelola kelas dan pemilik datanya sendiri.',
-  self: 'Hanya Anda sendiri. Pengelola kelas tidak dapat melihatnya.',
+export const AUDIENCE_HINT: Record<AudienceLevel, string> = {
+  public: 'Bisa dilihat siapa pun, termasuk pengunjung yang belum masuk.',
+  class_member: 'Hanya bisa dilihat anggota kelas yang sudah login.',
+  class_admin: 'Hanya bisa dilihat Ketua (admin kelas).',
 };
 
 type Meta = {
@@ -284,6 +297,31 @@ export function allowedAudiences(key: VisibilityKey): Audience[] {
   });
 }
 
+/**
+ * Apakah sebuah level UI boleh dipilih untuk key ini?
+ *
+ * Pemeriksaan yang sama dengan `allowedAudiences`, tapi untuk tiga level UI.
+ * Dipakai select untuk **menonaktifkan** (bukan menghilangkan) level yang lebih
+ * luas dari plafon katalog, sehingga setiap dropdown tetap menampilkan tiga
+ * opsi — hanya `page.tasks`/`section.home.tasks` yang memblokir Publik (E11).
+ */
+export function levelAllowed(key: VisibilityKey, level: AudienceLevel): boolean {
+  return AUDIENCES.indexOf(level) >= AUDIENCES.indexOf(WIDEST_AUDIENCE[key]);
+}
+
+/**
+ * Terjemahkan nilai audience apa pun ke salah satu dari tiga level UI.
+ *
+ * `authenticated` (lebih luas dari `class_member`) dan `self` (lebih sempit dari
+ * `class_admin`) masih bisa tersimpan dari aturan lama; keduanya ditampilkan
+ * pada level terdekat agar Select tidak pernah punya nilai tanpa opsi.
+ */
+export function toAudienceLevel(audience: Audience): AudienceLevel {
+  if (audience === 'authenticated') return 'class_member';
+  if (audience === 'self') return 'class_admin';
+  return audience;
+}
+
 /** Key page yang menjadi "langit-langit" sebuah key, untuk catatan UI. */
 export function pageCeiling(key: VisibilityKey): VisibilityKey | null {
   let current = VISIBILITY_BY_KEY[key].parent as VisibilityKey | undefined;
@@ -297,10 +335,11 @@ export function pageCeiling(key: VisibilityKey): VisibilityKey | null {
 }
 
 /**
- * Nilai select yang berarti "pakai bawaan katalog" — bukan audience tertentu.
- * Server Action menerjemahkannya jadi `audience: null`, yaitu penghapusan
- * override. Satu konstanta supaya klien dan server tidak memakai string kosong
- * yang berbeda makna.
+ * Nilai "tidak ada pilihan" untuk perhitungan pratinjau (`publicVisibility`),
+ * bukan audience tertentu. Select tidak lagi menampilkan opsi default, tapi
+ * Server Action tetap menerima string kosong dan menerjemahkannya jadi
+ * `audience: null` (penghapusan override), dan skema item memakai `null` untuk
+ * arti yang sama di kolom `visibility`.
  */
 export const ALLOW_DEFAULT = '';
 

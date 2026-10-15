@@ -120,7 +120,6 @@ function SocialLinkRowEditor({
               visibilityKey="item.social_link"
               value={link.visibility ?? ''}
               map={map}
-              defaultLabel="Ikut aturan tautan sosial"
               invalid={Boolean(first('visibility'))}
             />
           )}
@@ -236,7 +235,6 @@ function AddSocialLinkForm({ map }: { map: Record<VisibilityKey, VisibilityEntry
             visibilityKey="item.social_link"
             value=""
             map={map}
-            defaultLabel="Ikut aturan tautan sosial"
             invalid={Boolean(first('visibility'))}
           />
         )}

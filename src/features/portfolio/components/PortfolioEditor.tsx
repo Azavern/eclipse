@@ -182,7 +182,6 @@ function PortfolioRowEditor({
               visibilityKey="item.portfolio"
               value={item.visibility ?? ''}
               map={map}
-              defaultLabel="Ikut aturan portofolio"
               invalid={Boolean(errors?.visibility?.[0])}
             />
           )}
@@ -257,7 +256,6 @@ function AddPortfolioForm({ map }: { map: Record<VisibilityKey, VisibilityEntry>
             visibilityKey="item.portfolio"
             value=""
             map={map}
-            defaultLabel="Ikut aturan portofolio"
             invalid={Boolean(errors?.visibility?.[0])}
           />
         )}

@@ -4,17 +4,16 @@ import { useActionState, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { saveClassVisibility } from '@/features/visibility/actions';
 import {
-  ALLOW_DEFAULT,
   AUDIENCE_HINT,
   AUDIENCE_LABEL,
-  allowedAudiences,
+  AUDIENCE_LEVELS,
   ceilingNote,
   CLASS_SCOPE_KEYS,
   GROUP_ORDER,
+  levelAllowed,
   publicVisibility,
   VISIBILITY_BY_KEY,
-  WIDEST_AUDIENCE,
-  type Audience,
+  type AudienceLevel,
   type VisibilityEntry,
   type VisibilityKey,
 } from '@/lib/visibility/registry';
@@ -23,14 +22,16 @@ import { Select } from '@/components/ui/Input';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
-export type SelectionMap = Record<VisibilityKey, string>;
+export type SelectionMap = Record<VisibilityKey, AudienceLevel>;
 
-/** Ambil hanya key yang dikenal dari nilai yang di-echo Server Action. */
-function pickKnownKeys(values: Record<string, string>, fallback: SelectionMap): SelectionMap {
+/** Ambil hanya level yang dikenal dari nilai yang di-echo Server Action. */
+function pickKnownLevels(values: Record<string, string>, fallback: SelectionMap): SelectionMap {
   const out = { ...fallback };
   for (const key of CLASS_SCOPE_KEYS) {
     const value = values[`vis_${key}`];
-    if (typeof value === 'string') out[key] = value;
+    if (typeof value === 'string' && (AUDIENCE_LEVELS as readonly string[]).includes(value)) {
+      out[key] = value as AudienceLevel;
+    }
   }
   return out;
 }
@@ -38,19 +39,22 @@ function pickKnownKeys(values: Record<string, string>, fallback: SelectionMap): 
 /**
  * Editor visibilitas kelas.
  *
- * Satu select per key. Nilai kosong = pakai bawaan katalog; daftar opsi sudah
- * dibatasi `allowedAudiences(key)` sehingga Ketua tidak pernah diberi audience
- * yang lebih luas dari yang schema izinkan.
+ * Satu select per key, dan **setiap** select hanya punya tiga opsi — Publik,
+ * Anggota, Ketua — masing-masing menyebut level aksesnya. Tidak ada lagi opsi
+ * "bawaan katalog": nilai awal sudah berupa level yang benar-benar berlaku
+ * (`own` dari `get_visibility_map`), jadi apa yang terlihat itulah yang
+ * tersimpan.
  *
- * Setiap pilihan menampilkan **dua** penjelasan:
- *  - plafon halaman induk (`ceilingNote`), dan
- *  - akibatnya bagi pengunjung tanpa login (`publicVisibility`).
+ * Level yang lebih luas dari plafon katalog ditampilkan sebagai opsi
+ * nonaktif, bukan dihilangkan, supaya daftar tetap tiga opsi di semua baris
+ * (mis. Publik pada Tugas, yang memang tidak pernah boleh publik).
+ *
+ * Setiap baris menampilkan **dua** penjelasan:
+ *  - akibat pilihan bagi pengunjung tanpa login (`publicVisibility`), dan
+ *  - plafon halaman induk (`ceilingNote`) bila pilihan lebih longgar.
  *
  * Yang kedua adalah jawaban langsung atas pertanyaan yang paling sering muncul
- * di pengaturan: "kenapa beranda saya masih kosong buat pengunjung?". Kenapa
- * diperlukan: `section.home.*` mewarisi aturan page-nya sendiri, jadi membuka
- * satu section saja tidak cukup untuk membuat apa pun tampak — page sumbernya
- * juga harus terbuka. Tanpa pratinjau, itu harus ditebak.
+ * di pengaturan: "kenapa beranda saya masih kosong buat pengunjung?".
  */
 export function VisibilityEditor({
   initial,
@@ -64,7 +68,7 @@ export function VisibilityEditor({
   // Setelah aksi gagal, nilai yang dikirim server yang ditampilkan supaya
   // isian tidak hilang (§15.1).
   const [selection, setSelection] = useState<SelectionMap>(() =>
-    state && !state.ok && state.values ? pickKnownKeys(state.values, initial) : initial,
+    state && !state.ok && state.values ? pickKnownLevels(state.values, initial) : initial,
   );
 
   const fieldErrors = state && !state.ok ? state.error.fieldErrors : undefined;
@@ -80,12 +84,6 @@ export function VisibilityEditor({
 
   const inputId = (key: VisibilityKey) => `vis_${key}`;
   const errorFor = (key: VisibilityKey) => fieldErrors?.[inputId(key)]?.[0];
-
-  const noteFor = (key: VisibilityKey): string | null => {
-    const chosen = selection[key];
-    if (chosen === '') return null;
-    return ceilingNote(key, chosen as Audience, map);
-  };
 
   // Ringkasan di atas form: berapa bagian yang benar-benar terlihat oleh
   // pengunjung tanpa login, bukan hanya berapa select yang berisi "publik".
@@ -119,8 +117,8 @@ export function VisibilityEditor({
           <div className="flex flex-col">
             {keys.map((key) => {
               const meta = VISIBILITY_BY_KEY[key];
-              const options = allowedAudiences(key);
-              const note = noteFor(key);
+              const chosen = selection[key];
+              const note = ceilingNote(key, chosen, map);
               const isPublic = publicView[key];
 
               return (
@@ -128,12 +126,7 @@ export function VisibilityEditor({
                   key={key}
                   id={inputId(key)}
                   label={meta.label}
-                  hint={
-                    note ??
-                    (options.length === 0
-                      ? 'Bagian ini tidak punya pilihan lain.'
-                      : AUDIENCE_HINT[options[0] as Audience])
-                  }
+                  hint={note ?? AUDIENCE_HINT[chosen]}
                   error={errorFor(key)}
                 >
                   {(describedBy) => (
@@ -141,22 +134,25 @@ export function VisibilityEditor({
                       <Select
                         id={inputId(key)}
                         name={inputId(key)}
-                        value={selection[key]}
+                        value={chosen}
                         describedBy={describedBy}
                         invalid={Boolean(errorFor(key))}
                         onChange={(event) =>
-                          setSelection((prev) => ({ ...prev, [key]: event.target.value }))
+                          setSelection((prev) => ({
+                            ...prev,
+                            [key]: event.target.value as AudienceLevel,
+                          }))
                         }
                       >
-                        <option value={ALLOW_DEFAULT}>
-                          Bawaan katalog ({WIDEST_AUDIENCE[key]} —{' '}
-                          {AUDIENCE_LABEL[WIDEST_AUDIENCE[key]]})
-                        </option>
-                        {options.map((audience) => (
-                          <option key={audience} value={audience}>
-                            {AUDIENCE_LABEL[audience]}
-                          </option>
-                        ))}
+                        {AUDIENCE_LEVELS.map((level) => {
+                          const allowed = levelAllowed(key, level);
+                          return (
+                            <option key={level} value={level} disabled={!allowed}>
+                              {AUDIENCE_LABEL[level]}
+                              {allowed ? '' : ' (tidak tersedia untuk bagian ini)'}
+                            </option>
+                          );
+                        })}
                       </Select>
 
                       {/* Ikon + teks, bukan hanya warna (§17.7). */}

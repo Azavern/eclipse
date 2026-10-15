@@ -3,14 +3,15 @@
 import { useActionState, useState } from 'react';
 import { saveMyVisibility } from '@/features/visibility/actions';
 import {
-  ALLOW_DEFAULT,
+  AUDIENCE_HINT,
   AUDIENCE_LABEL,
-  allowedAudiences,
+  AUDIENCE_LEVELS,
   ceilingNote,
+  levelAllowed,
   MEMBER_SCOPE_KEYS,
+  toAudienceLevel,
   VISIBILITY_BY_KEY,
-  WIDEST_AUDIENCE,
-  type Audience,
+  type AudienceLevel,
   type VisibilityEntry,
   type VisibilityKey,
 } from '@/lib/visibility/registry';
@@ -19,14 +20,16 @@ import { Select } from '@/components/ui/Input';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
-export type MemberSelectionMap = Partial<Record<VisibilityKey, string>>;
+export type MemberSelectionMap = Partial<Record<VisibilityKey, AudienceLevel>>;
 
-/** Ambil hanya key yang dikenal dari nilai yang di-echo Server Action. */
-function pickKnownKeys(values: Record<string, string>, fallback: MemberSelectionMap) {
+/** Ambil hanya level yang dikenal dari nilai yang di-echo Server Action. */
+function pickKnownLevels(values: Record<string, string>, fallback: MemberSelectionMap) {
   const out = { ...fallback };
   for (const key of MEMBER_SCOPE_KEYS) {
     const value = values[`vis_${key}`];
-    if (typeof value === 'string') out[key] = value;
+    if (typeof value === 'string' && (AUDIENCE_LEVELS as readonly string[]).includes(value)) {
+      out[key] = value as AudienceLevel;
+    }
   }
   return out;
 }
@@ -34,12 +37,15 @@ function pickKnownKeys(values: Record<string, string>, fallback: MemberSelection
 /**
  * Visibilitas milik anggota sendiri (scope member).
  *
- * Satu select per key persis seperti editor kelas, tapi daftar key-nya
- * `MEMBER_SCOPE_KEYS`: hanya bagian yang menempel pada data pribadi — foto,
- * nama panggilan, bio, portofolio, dan tautan sosial. Nilai kosong berarti
- * kembali ke bawaan katalog; `save_my_visibility` hanya menulis baris dengan
- * `owner_id = auth.uid()`, jadi anggota tidak pernah bisa mengubah milik orang
- * lain.
+ * Satu select per key persis seperti editor kelas, dan sama-sama hanya punya
+ * tiga opsi — Publik, Anggota, Ketua. Tidak ada lagi opsi "ikut aturan bawaan":
+ * nilai awal sudah berupa level yang berlaku di tingkat kelas, sehingga yang
+ * terlihat sama dengan yang akan tersimpan.
+ *
+ * Key-nya `MEMBER_SCOPE_KEYS`: hanya bagian yang menempel pada data pribadi —
+ * foto, nama panggilan, bio, portofolio, dan tautan sosial. `save_my_visibility`
+ * hanya menulis baris dengan `owner_id = auth.uid()`, jadi anggota tidak pernah
+ * bisa mengubah milik orang lain — dan aturan kelas tetap menjadi batas terluar.
  *
  * Item (override per baris) tidak ada di sini: yang diatur lewat kolom
  * `visibility` pada form portofolio dan tautan sosial (§7.3).
@@ -56,18 +62,12 @@ export function MemberVisibilityEditor({
   // Setelah aksi gagal, nilai yang dikirim server yang ditampilkan supaya
   // isian tidak hilang (§15.1).
   const [selection, setSelection] = useState<MemberSelectionMap>(() =>
-    state && !state.ok && state.values ? pickKnownKeys(state.values, initial) : initial,
+    state && !state.ok && state.values ? pickKnownLevels(state.values, initial) : initial,
   );
 
   const fieldErrors = state && !state.ok ? state.error.fieldErrors : undefined;
   const inputId = (key: VisibilityKey) => `vis_${key}`;
   const errorFor = (key: VisibilityKey) => fieldErrors?.[inputId(key)]?.[0];
-
-  const noteFor = (key: VisibilityKey): string | null => {
-    const chosen = selection[key] ?? ALLOW_DEFAULT;
-    if (chosen === ALLOW_DEFAULT) return null;
-    return ceilingNote(key, chosen as Audience, map);
-  };
 
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -76,16 +76,15 @@ export function MemberVisibilityEditor({
       <div className="flex flex-col">
         {MEMBER_SCOPE_KEYS.map((key) => {
           const meta = VISIBILITY_BY_KEY[key];
-          const value = selection[key] ?? ALLOW_DEFAULT;
-          const widest = WIDEST_AUDIENCE[key];
-          const note = noteFor(key);
+          const value = selection[key] ?? toAudienceLevel(map[key].own);
+          const note = ceilingNote(key, value, map);
 
           return (
             <FormField
               key={key}
               id={inputId(key)}
               label={meta.label}
-              hint={note ?? `Bawaan katalog: ${widest} — ${AUDIENCE_LABEL[widest]}`}
+              hint={note ?? AUDIENCE_HINT[value]}
               error={errorFor(key)}
             >
               {(describedBy) => (
@@ -96,15 +95,21 @@ export function MemberVisibilityEditor({
                   describedBy={describedBy}
                   invalid={Boolean(errorFor(key))}
                   onChange={(event) =>
-                    setSelection((prev) => ({ ...prev, [key]: event.target.value }))
+                    setSelection((prev) => ({
+                      ...prev,
+                      [key]: event.target.value as AudienceLevel,
+                    }))
                   }
                 >
-                  <option value={ALLOW_DEFAULT}>Ikut aturan bawaan</option>
-                  {allowedAudiences(key).map((audience) => (
-                    <option key={audience} value={audience}>
-                      {AUDIENCE_LABEL[audience]}
-                    </option>
-                  ))}
+                  {AUDIENCE_LEVELS.map((level) => {
+                    const allowed = levelAllowed(key, level);
+                    return (
+                      <option key={level} value={level} disabled={!allowed}>
+                        {AUDIENCE_LABEL[level]}
+                        {allowed ? '' : ' (tidak tersedia untuk bagian ini)'}
+                      </option>
+                    );
+                  })}
                 </Select>
               )}
             </FormField>

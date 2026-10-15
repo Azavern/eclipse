@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUDIENCES,
+  AUDIENCE_LABEL,
+  AUDIENCE_LEVELS,
   allowedAudiences,
   CLASS_SCOPE_KEYS,
   groupKeys,
+  levelAllowed,
   MEMBER_SCOPE_KEYS,
   narrower,
   pageCeiling,
+  toAudienceLevel,
   VISIBILITY_BY_KEY,
   VISIBILITY_KEYS,
   WIDEST_AUDIENCE,
@@ -126,6 +130,47 @@ describe('allowedAudiences', () => {
         expect(AUDIENCES.indexOf(audience)).toBeGreaterThanOrEqual(AUDIENCES.indexOf(widest));
       }
     }
+  });
+});
+
+describe('AUDIENCE_LEVELS (opsi yang dirender UI)', () => {
+  it('tepat tiga level, dari terluas ke tersempit', () => {
+    expect([...AUDIENCE_LEVELS]).toEqual(['public', 'class_member', 'class_admin']);
+  });
+
+  it('setiap label menyebut tingkat aksesnya', () => {
+    expect(AUDIENCE_LABEL.public).toBe('Publik — siapa pun');
+    expect(AUDIENCE_LABEL.class_member).toBe('Anggota — semua yang login');
+    expect(AUDIENCE_LABEL.class_admin).toBe('Ketua — hanya admin');
+  });
+
+  it('levelAllowed menolak level yang lebih luas dari widest katalog', () => {
+    // E11: page.tasks tidak pernah boleh publik, jadi opsi Publik dinonaktifkan.
+    expect(levelAllowed('page.tasks', 'public')).toBe(false);
+    expect(levelAllowed('page.tasks', 'class_member')).toBe(true);
+    expect(levelAllowed('page.home', 'public')).toBe(true);
+    for (const key of VISIBILITY_KEYS) {
+      expect(levelAllowed(key, toAudienceLevel(WIDEST_AUDIENCE[key])), `widest ${key}`).toBe(true);
+    }
+  });
+
+  it('setiap key punya minimal dua level yang bisa dipilih', () => {
+    for (const key of VISIBILITY_KEYS) {
+      const usable = AUDIENCE_LEVELS.filter((level) => levelAllowed(key, level));
+      expect(usable.length, `level untuk ${key}`).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+describe('toAudienceLevel', () => {
+  it('nilai yang sudah berupa level tidak berubah', () => {
+    for (const level of AUDIENCE_LEVELS) expect(toAudienceLevel(level)).toBe(level);
+  });
+
+  it('nilai lama dari enum penuh dipetakan ke level terdekat', () => {
+    // authenticated lebih luas dari class_member, self lebih sempit dari class_admin.
+    expect(toAudienceLevel('authenticated')).toBe('class_member');
+    expect(toAudienceLevel('self')).toBe('class_admin');
   });
 });
 

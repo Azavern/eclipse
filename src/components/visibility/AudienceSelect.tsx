@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { Select } from '@/components/ui/Input';
 import {
-  ALLOW_DEFAULT,
   AUDIENCE_HINT,
   AUDIENCE_LABEL,
-  allowedAudiences,
+  AUDIENCE_LEVELS,
   ceilingNote,
-  WIDEST_AUDIENCE,
+  levelAllowed,
+  toAudienceLevel,
   type Audience,
+  type AudienceLevel,
   type VisibilityEntry,
   type VisibilityKey,
 } from '@/lib/visibility/registry';
@@ -23,8 +24,9 @@ import {
  * dipakai server dan editor kelas — bukan implementasi terpisah yang bisa
  * berbeda (§7.8).
  *
- * Nilai kosong berarti "pakai bawaan", bukan audience tertentu; teks opsinya
- * menyebut nilai bawaan supaya pengguna tahu apa yang sebenarnya berlaku.
+ * Hanya tiga opsi — Publik, Anggota, Ketua. Tidak ada opsi "ikut aturan
+ * bawaan": nilai awal `value` sudah berupa level efektif yang berlaku, jadi
+ * mengosongkan pilihan tidak lagi menghapus override.
  */
 export function AudienceSelect({
   id,
@@ -32,7 +34,6 @@ export function AudienceSelect({
   visibilityKey,
   value,
   map,
-  defaultLabel = 'Ikut aturan bawaan',
   describedBy,
   invalid = false,
   onChange,
@@ -43,20 +44,19 @@ export function AudienceSelect({
   visibilityKey: VisibilityKey;
   value: string;
   map: Record<VisibilityKey, VisibilityEntry>;
-  /** Label opsi "pakai bawaan"; teksnya menyesuaikan konteks pemanggil. */
-  defaultLabel?: string;
   describedBy?: string;
   invalid?: boolean;
   onChange?: (value: string) => void;
 }) {
   const [internal, setInternal] = useState(value);
-  const chosen = onChange ? value : internal;
 
-  const options = allowedAudiences(visibilityKey);
-  const note =
-    chosen === ALLOW_DEFAULT
-      ? null
-      : ceilingNote(visibilityKey, chosen as Audience, map);
+  // Nilai kosong berarti "belum ada aturan baris ini"; yang berlaku adalah level
+  // efektif dari bagian induknya, dan itulah yang ditampilkan.
+  const raw = onChange ? value : internal;
+  const fallback = toAudienceLevel(map[visibilityKey]?.effective ?? 'class_admin');
+  const chosen: AudienceLevel = raw ? toAudienceLevel(raw as Audience) : fallback;
+
+  const note = ceilingNote(visibilityKey, chosen, map);
 
   const handleChange = (next: string) => {
     if (!onChange) setInternal(next);
@@ -73,12 +73,15 @@ export function AudienceSelect({
         invalid={invalid}
         onChange={(event) => handleChange(event.target.value)}
       >
-        <option value={ALLOW_DEFAULT}>{defaultLabel}</option>
-        {options.map((audience) => (
-          <option key={audience} value={audience}>
-            {AUDIENCE_LABEL[audience]}
-          </option>
-        ))}
+        {AUDIENCE_LEVELS.map((level) => {
+          const allowed = levelAllowed(visibilityKey, level);
+          return (
+            <option key={level} value={level} disabled={!allowed}>
+              {AUDIENCE_LABEL[level]}
+              {allowed ? '' : ' (tidak tersedia untuk bagian ini)'}
+            </option>
+          );
+        })}
       </Select>
 
       {/*
@@ -86,10 +89,7 @@ export function AudienceSelect({
         terdengar oleh pembaca layar, bukan hanya terlihat.
       */}
       <p aria-live="polite" className="text-caption text-text-muted">
-        {note ??
-          (chosen === ALLOW_DEFAULT
-            ? `Ikut aturan bawaan bagian ini (${WIDEST_AUDIENCE[visibilityKey]}).`
-            : AUDIENCE_HINT[chosen as Audience])}
+        {note ?? AUDIENCE_HINT[chosen]}
       </p>
     </div>
   );
