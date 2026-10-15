@@ -1,3 +1,4 @@
+import { ArrowUpRight, Link2 } from 'lucide-react';
 import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { SOCIAL_PLATFORM_LABEL, type SocialPlatformName } from '@/lib/social';
 import type { SocialLinkRow } from '../queries';
@@ -42,10 +43,21 @@ export function SocialLinks({ links }: { links: SocialLinkRow[] }) {
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex flex-col gap-0.5 p-4`}
+          className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex items-center gap-3 p-4`}
         >
-          <span className="text-body font-semibold text-text">{socialLinkName(link)}</span>
-          <span className="text-small text-text-muted">{link.platform}</span>
+          <span className="icon-tile size-10" aria-hidden="true">
+            <Link2 className="size-5" />
+          </span>
+
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-body font-semibold text-text">
+              {socialLinkName(link)}
+            </span>
+            <span className="truncate text-small text-text-muted">{link.platform}</span>
+          </span>
+
+          {/* Panah menandai bahwa tautan ini membuka halaman lain. */}
+          <ArrowUpRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" />
         </a>
       ))}
     </div>

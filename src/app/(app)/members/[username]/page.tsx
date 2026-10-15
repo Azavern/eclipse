@@ -5,7 +5,8 @@ import { getMemberByUsername } from '@/features/member/queries';
 import { MemberPortfolioSection } from '@/features/portfolio/components/MemberPortfolioSection';
 import { MemberSocialSection } from '@/features/social/components/MemberSocialSection';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
-import { PageHeader, Section } from '@/components/ui/Section';
+import { AlignLeft, CalendarPlus, UserRound } from 'lucide-react';
+import { Breadcrumb, PageHeader, Section } from '@/components/ui/Section';
 import { Badge } from '@/components/ui/Badge';
 import { formatDateTime } from '@/lib/time';
 import { getClassIdentity } from '@/features/class/queries';
@@ -51,20 +52,40 @@ export default async function MemberProfilePage({
   // jadi tidak ada baris yang diambil lalu tidak dirender.
   return (
     <div className="card-grid">
-      <PageHeader title={member.full_name} description={`@${member.username}`} />
+      <PageHeader
+        breadcrumb={
+          <Breadcrumb
+            items={[{ href: '/members', label: 'Anggota' }, { label: member.full_name }]}
+          />
+        }
+        title={member.full_name}
+        description={`@${member.username}`}
+      />
 
-      <section className="flex flex-wrap items-center gap-4">
+      {/*
+        Kartu identitas: avatar besar sebagai jangkar visual, dengan peran dan
+        waktu bergabung terbaca sebagai teks di sebelahnya (DESIGN.md §6: setiap
+        layar punya minimal satu jangkar non-teks).
+      */}
+      <section className="flex flex-wrap items-center gap-5 rounded-lg border border-border-strong bg-surface p-5 shadow-low">
         <AvatarFromPath path={member.avatar_path} name={member.full_name} size="xl" />
 
         <div className="flex min-w-0 flex-col gap-2">
+          <span className="font-display text-h2 font-semibold text-text">
+            {member.full_name}
+          </span>
+
           {member.nickname ? (
             <p className="text-body text-text-muted">@{member.nickname}</p>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="info">{member.role_name}</Badge>
+            <Badge tone="info" icon={<UserRound className="size-3.5" />}>
+              {member.role_name}
+            </Badge>
             {member.joined_at ? (
-              <span className="text-caption text-text-muted">
+              <span className="flex items-center gap-1.5 text-caption text-text-muted">
+                <CalendarPlus aria-hidden="true" className="size-3.5" />
                 Bergabung {formatDateTime(member.joined_at, timezone)}
               </span>
             ) : null}
@@ -73,8 +94,8 @@ export default async function MemberProfilePage({
       </section>
 
       {member.bio ? (
-        <Section tier="secondary" title="Bio">
-          <p className="text-body text-text">{member.bio}</p>
+        <Section tier="secondary" title="Bio" icon={<AlignLeft className="size-5" />}>
+          <p className="max-w-prose whitespace-pre-line text-body text-text">{member.bio}</p>
         </Section>
       ) : null}
 

@@ -7,10 +7,10 @@ export const dynamic = 'force-dynamic';
 /**
  * Galeri state (blueprint §11.3).
  *
- * DESIGN.md §6 mewajibkan setiap komponen interaktif punya state yang benar-benar
+ * DESIGN.md §9 mewajibkan setiap komponen interaktif punya state yang benar-benar
  * didesain, bukan hanya didaftar. Halaman ini merender SETIAP primitive pada
  * SETIAP state-nya supaya bisa ditinjau langsung: kontras, fokus, label, dan
- * perilaku keyboard.
+ * perilaku keyboard — sekaligus jadi "state sheet" yang diminta DESIGN.md §9.
  *
  * Tidak pernah dikirim ke produksi: `notFound()` di produksi (§10).
  *

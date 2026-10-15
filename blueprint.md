@@ -880,12 +880,16 @@ export const narrower = (a: Audience, b: Audience): Audience =>
   AUDIENCES.indexOf(a) >= AUDIENCES.indexOf(b) ? a : b;
 
 export const AUDIENCE_LABEL: Record<Audience, string> = {
-  public: 'Siapa saja (publik)',
+  public: 'Publik — siapa pun',
   authenticated: 'Semua yang sudah masuk',
-  class_member: 'Anggota kelas',
-  class_admin: 'Pengelola kelas',
+  class_member: 'Anggota — semua yang login',
+  class_admin: 'Ketua — hanya admin',
   self: 'Hanya saya',
 };
+
+// Tiga level yang dirender UI. authenticated diringkas ke class_member, self
+// tidak lagi ditawarkan; enum database tetap lima nilai (§7.8 UI konfigurasi).
+export const AUDIENCE_LEVELS = ['public','class_member','class_admin'] as const;
 
 type Meta = { kind: 'page'|'section'|'field'|'item'; scope: 'class'|'member';
   label: string; group: string; parent?: VisibilityKey; dataSource?: VisibilityKey };
@@ -918,8 +922,8 @@ export type VisibilityKey = keyof typeof VISIBILITY;
 
 **UI konfigurasi:**
 
-- **Ketua:** `/settings/visibility`, daftar datar dikelompokkan per `group`. Tiap baris: label, `AudienceSelect` (opsi dibatasi `widest`; `self` hanya untuk scope member), nilai efektif, dan catatan bila efektif ≠ pilihan ("Dibatasi halaman Anggota: hanya anggota kelas" atau "Page sumber data tertutup"). Opsi "Gunakan default" = hapus aturan. Satu form per grup dengan tombol **Simpan** (RPC `save_class_visibility`, atomik). Tidak ada auto-submit saat select berubah.
-- **Anggota:** di `/settings/profile`, `AudienceSelect` di samping avatar, nickname, bio, section portofolio, section social, dan tiap item. Opsi dibatasi `widest` dan ditampilkan nilai efektif dengan catatan ceiling. Simpan lewat `save_my_visibility` (key-level) dan aksi CRUD item (per item).
+- **Ketua:** `/settings/visibility`, daftar datar dikelompokkan per `group`. Tiap baris: label, select audience, nilai efektif, dan catatan bila efektif ≠ pilihan ("Dibatasi halaman Anggota: hanya anggota kelas" atau "Page sumber data tertutup"). Tidak ada opsi "Gunakan default": nilai awal setiap select adalah level efektif yang berlaku, jadi menyimpan selalu menulis aturan eksplisit. Satu form per grup dengan tombol **Simpan** (RPC `save_class_visibility`, atomik). Setiap select hanya berisi tiga level — **Publik** (siapa pun), **Anggota** (semua yang login), **Ketua** (hanya admin) — dan level yang lebih luas dari `widest` ditampilkan nonaktif. Tidak ada auto-submit saat select berubah.
+- **Anggota:** di `/settings/profile`, select audience tiga level yang sama di samping avatar, nickname, bio, section portofolio, section social, dan tiap item; nilai awal adalah level efektif dan catatan ceiling ikut ditampilkan. Simpan lewat `save_my_visibility` (key-level) dan aksi CRUD item (per item).
 - `VisibilityBadge` (ikon + teks, bukan warna saja) menunjukkan audience efektif pada item di halaman milik sendiri.
 
 ### 7.9 Anti-bypass (checklist wajib lulus di pgTAP)
@@ -2157,7 +2161,7 @@ Aturan tambahan (WAJIB):
 
 ## 17. Design system dan strategi token (mengikuti `DESIGN.md`)
 
-### 17.1 Catatan keputusan desain (`DESIGN.md` §1)
+### 17.1 Catatan keputusan desain (`DESIGN.md` §3)
 
 | # | Pertanyaan | Jawaban untuk produk ini |
 |---|---|---|
@@ -2168,12 +2172,31 @@ Aturan tambahan (WAJIB):
 | 5 | Mobile vs desktop | §16. Navigasi bertransformasi (bottom nav ↔ sidebar), kolom reflow, tabel → daftar. Token dan komponen sama. |
 | 6 | Reuse vs baru | Greenfield: primitive di §11.2 adalah satu-satunya sumber; fitur menyusun primitive. |
 
+**Design Notes** (format `DESIGN.md` §13). Ditetapkan sekali dan dipakai ulang di
+setiap layar; jangan diputuskan ulang per halaman.
+
+```
+Design Notes
+- Register · archetype: Product · Education/LMS (runner-up: Admin/back-office)
+- Dials: Density 5 · Expressiveness 5 · Motion 3
+- Tokens: palet runtime kelas (aksen tunggal) · tint semantik + tint aksen turunan
+  · radius 4/8/16/full · elevasi flat/low/medium/high + glow primary · motion 120/200/320 ms
+- Assumptions: ponsel adalah perangkat utama; palet kelas dipilih Ketua dan
+  divalidasi kontras, sehingga tiap keputusan visual tidak boleh bergantung pada
+  hue tertentu
+- Added screens (not in spec): 403/404/500, galeri state `/dev/ui`, sub-navigasi pengaturan
+- Backend needs: tidak ada yang baru — seluruh informasi yang ditampilkan sudah ada di skema
+- Untuk mengubah rasa: bilang "lebih hangat", "lebih padat", atau "lebih hidup" —
+  yang berubah hanya token, bukan struktur
+```
+
 ### 17.2 Dua lapis token
 
 | Lapis | Sifat | Contoh | Sumber |
 |---|---|---|---|
 | **Statis** | Tidak dapat diubah pengguna | spacing, radius, elevation, skala tipografi, breakpoint, z-index, motion | `styles/globals.css` |
 | **Runtime (theme)** | Dikonfigurasi Ketua, tervalidasi | palet 10 warna, preset font, layout preset | `classes.theme` → CSS variables saat render |
+| **Turunan** | Dihitung dari palet runtime, tidak dapat dikonfigurasi | tint aksen dan tint semantik (`--color-primary-soft`, `--color-success-edge`, …), `--color-band`, `--color-surface-dim`, `--theme-on-primary`, `--theme-control-border`, seluruh `--shadow-*` | rumus `color-mix()` di `styles/globals.css` |
 
 Aturan: komponen hanya memakai token (kelas Tailwind yang dipetakan ke token). Dilarang di komponen: nilai hex/rgb, nilai arbitrer (`w-[17px]`, `text-[#...]`), `style={{…}}` untuk warna/ukuran. `scripts/check-tokens.mjs` (bagian CI) memeriksanya. Nilai runtime dipisahkan dari token statis (`AGENTS.md` §7).
 
@@ -2194,9 +2217,17 @@ Aturan: komponen hanya memakai token (kelas Tailwind yang dipetakan ke token). D
 | `--radius-lg` | 16 px | dialog, gambar cover, panel pengelompokan yang memang perlu bingkai |
 | `--radius-full` | 9999 px | avatar, badge |
 
-Baris daftar dan tabel tidak bersudut. Kartu tidak dipakai kecuali pengelompokan membutuhkannya (anggota di grid).
+Setiap kontrol dan kartu memakai radius menurut tingkatnya: chip dan badge penuh, tombol dan input `md`, kartu `md`/`lg`, dialog dan panel hero `lg` (`DESIGN.md` §7).
 
-**Elevation:** `none` (default; pemisahan lewat border/spasi), `low` (bar menempel: `TopBar`/`BottomNav`), `medium` (dialog). Tidak ada bayangan di kartu daftar.
+**Elevation** (`DESIGN.md` §6 — satu resep per tingkat, dipakai konsisten):
+
+| Tingkat | Bayangan | Dipakai untuk |
+|---|---|---|
+| flat | tanpa bayangan | kartu tersier, baris daftar, pita `band` |
+| low | `--shadow-low` | kartu sekunder, tombol yang di-hover |
+| medium | `--shadow-medium` | panel kartu utama, menu mengambang ringan |
+| high | `--shadow-high` | dialog, menu `Disclosure`, toast |
+| glow | `--shadow-glow` / `--shadow-glow-high` | HANYA kartu primer dan hero: glow menandai "baca ini dulu", jadi tidak boleh dipakai sebagai dekorasi |
 
 **Tipografi** (satuan `rem`; berubah pada ≥1024 px sebagai token, bukan nilai per-komponen):
 
@@ -2206,14 +2237,50 @@ Baris daftar dan tabel tidak bersudut. Kartu tidak dipakai kecuali pengelompokan
 | heading-1 | 1.75rem / 1.2 | 2rem / 1.2 | 600 | judul halaman |
 | heading-2 | 1.375rem / 1.25 | 1.5rem / 1.25 | 600 | judul section |
 | heading-3 | 1.125rem / 1.3 | 1.25rem / 1.3 | 600 | judul item |
-| body | 1rem / 1.6 | 1rem / 1.6 | 400 | isi |
+| body-lg | 1.125rem / 1.55 | 1.1875rem / 1.6 | 400 | paragraf baca di hero dan halaman isi |
+| body | 1rem / 1.6 | 1rem / 1.6 | 400 | isi dan kontrol formulir |
 | body-small | 0.875rem / 1.5 | 0.875rem / 1.5 | 400 | metadata |
 | caption | 0.75rem / 1.4 | 0.75rem / 1.4 | 400 | keterangan kecil |
 | label | 0.875rem / 1.2 | 0.875rem / 1.2 | 600 | label form, tombol |
 
 Tanpa teks ALL-CAPS ber-letter-spacing sebagai "eyebrow".
 
-**Lain-lain:** breakpoint `--bp-md: 768px`, `--bp-lg: 1024px`; `--content-max: 72rem`; `--sidebar-w: 16rem`; z-index `base 0, bar 10, dialog 50`; motion §11.4.
+**Motion** (`DESIGN.md` Appendix E) — durasi dan easing adalah token, bukan angka per komponen:
+
+| Token | Nilai | Dipakai untuk |
+|---|---|---|
+| `--motion-fast` | 120 ms | hover/pressed kontrol, transisi fungsional |
+| `--motion-press` | 80 ms | tekan tombol (scale 0,98) |
+| `--motion-base` | 200 ms | lift kartu yang bisa diklik |
+| `--motion-slow` | 320 ms | masuknya dialog, menu, dan toast |
+| `--ease-standard` | `cubic-bezier(.2,0,0,1)` | seluruh transisi |
+
+`prefers-reduced-motion: reduce` memaksa semua durasi ke 0 dan menghentikan kilau skeleton (`DESIGN.md` §10).
+
+**Warna turunan** (dihitung dengan `color-mix()` dari palet runtime, jadi tidak ada hue kedua yang harus dijaga saat Ketua mengganti palet):
+
+| Token | Rumus | Dipakai untuk |
+|---|---|---|
+| `--color-band` | aksen 6% + `surface` | pita kelompok (filter, panel pengantar, baris formulir bercatatan) |
+| `--color-primary-soft` / `--color-primary-edge` | aksen 10% / 30% + `surface` | tile ikon, pil navigasi aktif, chip filter aktif, hero |
+| `--color-secondary-soft` / `-edge` | hue sekunder 10% / 30% | tile ikon info |
+| `--color-success-soft` / `-edge` | sukses 10% / 30% | panel sukses, chip "selesai" |
+| `--color-warning-soft` / `-edge` | peringatan 12% / 34% | panel peringatan, chip "segera berakhir" |
+| `--color-error-soft` / `-edge` | galat 10% / 30% | panel galat, chip "lewat tenggat" |
+| `--color-surface-dim` | `surface` 90% + `text_secondary` | skeleton, hover tombol ghost, kontrol nonaktif |
+
+**Aturan tint (`DESIGN.md` §10).** `ThemeSchema` hanya menjamin warna semantik
+dan aksen kontras ≥4,5:1 terhadap `surface` dan `background`. Di atas latar
+ber-tint, rasio itu turun, dan untuk palet yang persis di ambang batas penurunan
+sekecil apa pun sudah menjatuhkannya di bawah AA. Karena itu: **teks di atas
+permukaan ber-tint selalu memakai `--color-text`/`--color-text-muted`**, dan
+hue-nya dibawa oleh latar, garis (`-edge`, ambang 3:1 sebagai batas bermakna),
+serta ikon. Teks berwarna hue (mis. `text-primary` di atas `bg-primary-soft`)
+sengaja **tidak** dipakai. Satu-satunya pengecualian adalah permukaan rata
+tanpa tint (`surface`, `background`), tempat semua pasangan warna semantik tetap
+sah dipakai.
+
+**Lain-lain:** breakpoint `--bp-md: 768px`, `--bp-lg: 1024px`; `--content-max: 84rem`; `--sidebar-w: 16rem`; z-index `base 0, bar 10, dialog 50`.
 
 ### 17.4 Token runtime
 
@@ -2229,7 +2296,7 @@ Token turunan (dihitung, tidak dikonfigurasi): `--theme-on-primary` dan `--theme
 | `grotesk` | Bricolage Grotesque | Public Sans | tegas, modern |
 | `rounded` | Nunito | Nunito Sans | ramah, informal |
 
-Tidak memakai Inter/Roboto/Arial/Geist/system-ui sebagai pilihan bawaan (`DESIGN.md` §9). Bila sebuah font tidak tersedia pada `next/font/google` versi terpasang, ganti dengan padanan karakter terdekat dan catat di `docs/STATUS.md`.
+Tidak memakai Inter/Roboto/Arial/Geist/system-ui sebagai pilihan bawaan (`DESIGN.md` §7: pilih keluarga font secara sengaja, dan keluarga yang umum dipakai bukan alasan untuk menolaknya — tapi identitas kelas "Eclipse" sudah punya tiga preset sendiri). Bila sebuah font tidak tersedia pada `next/font/google` versi terpasang, ganti dengan padanan karakter terdekat dan catat di `docs/STATUS.md`.
 
 **Injeksi:** root layout membaca `class_identity_v.theme` → `ThemeSchema.safeParse` + cek kontras → bila gagal, pakai `DEFAULT_THEME` dan catat di log → `buildThemeCss(theme)` menghasilkan blok `:root { --theme-primary: #…; … }` (hanya nilai tervalidasi regex hex dan enum preset; tidak ada string bebas) → dirender `<style nonce={nonce}>`. `@theme` Tailwind memetakan `--color-primary: var(--theme-primary)` dst. Konfirmasi sintaks `@theme` pada versi Tailwind terpasang.
 
@@ -2262,25 +2329,70 @@ export const ThemeSchema = z.object({
 
 **ThemeEditor** (`/settings/theme`): pilihan layout, preset font, 10 input warna (`<input type="color">` + field hex berlabel), panel `PalettePreview` yang menerapkan nilai ke kontainer pratinjau lewat CSS variables lokal (state klien, **tanpa simpan**), dan `ContrastReport` (daftar pasangan lulus/gagal dengan teks, bukan warna saja). Tombol **Publikasikan** disabled selama ada pasangan gagal; menyimpan lewat `updateTheme` (validasi ulang di server). Tombol "Kembalikan ke bawaan" memuat `DEFAULT_THEME` ke editor (belum menyimpan).
 
-### 17.6 Bahasa visual dan kepatuhan anti-slop (`DESIGN.md` §9)
+### 17.6 Bahasa visual (`DESIGN.md` §1, §6)
+
+Revisi `DESIGN.md` yang berlaku sekarang menempatkan kualitas visual sebagai
+bagian dari persyaratan, bukan hiasan yang ditambahkan belakangan: kedalaman
+(elevasi), permukaan ber-tint, gradien pada satu elemen hero, ikon di tile, dan
+mikro-interaksi memang diharapkan — selama tidak melanggar kesetiaan pada
+spesifikasi dan lantai aksesibilitas.
 
 | Pola | Keputusan |
 |---|---|
-| Gradien/glow dekoratif, glassmorphism | Tidak dipakai. Hero = tipografi di atas `surface` atau cover foto (bila diunggah) |
-| Tiga kartu identik | Jadwal \| Event \| Tugas disajikan sebagai tiga **daftar bersekat** dengan judul section; bukan kartu seragam |
-| Kerangka landing SaaS generik | Tidak dipakai; Home adalah dashboard kelas |
-| Font default | Preset di §17.4 |
-| Eyebrow caps, penomoran 01/02/03, panah `→` otomatis, badge "Live/New" | Tidak dipakai |
+| Gradien | Dipakai **hemat dan terarah**: satu panel hero ber-tint aksen di beranda, satu panel merek di halaman masuk. Gradiennya tetap satu hue dari palet kelas, sehingga `--color-on-primary` tetap berlaku; tidak ada gradien dua hue |
+| Glassmorphism | Hanya pada bar yang menempel (`TopBar`, `BottomNav`): latar `surface` 88% + blur. Latar tetap dicampur dari token supaya kontras teks tidak bergantung pada apa yang lewat di belakangnya |
+| Kedalaman | Empat tingkat + glow, satu resep per tingkat (§17.3). Kartu tersier tetap datar |
+| Tile ikon | Bentuk berulang untuk ikon di navigasi, kartu statistik, baris daftar, dan empty state |
+| Tiga kartu identik | Jadwal \| Event \| Tugas tetap disajikan sebagai tiga daftar berjudul, bukan kartu seragam tanpa pembeda |
+| Kerangka landing SaaS generik | Tidak dipakai; beranda adalah dashboard kelas |
+| Font default | Preset di §17.4; tanpa Inter/Roboto/Arial/system-ui sebagai bawaan |
+| Eyebrow caps, penomoran 01/02/03, badge "Live/New" | Tidak dipakai |
 | Radius seragam | Hierarki §17.3 |
-| Motion tersebar | Tidak ada; hanya transisi fungsional §11.4 |
-| Aksen satu kata di headline | Tidak dipakai |
-| Mengisi ruang kosong | Ruang kosong disengaja; empty state hanya bila memberi langkah berikutnya |
+| Motion | Token motion §17.3: hover/pressed pada tiap kontrol, lift pada kartu yang bisa diklik, satu gerakan masuk untuk dialog/menu/toast. Tidak ada animasi latar berulang. Reduced motion mematikan semuanya |
+| Ruang kosong | Void > seperempat viewport diperbaiki dengan cara `DESIGN.md` §5 (rapatkan jarak → kolom → perbesar isi → tambah konten yang memang ada di skema), bukan dibiarkan kosong |
+| Bahasa konten | Indonesia, format lokal (`12 Okt 2026`, `Rp 1.250.000`), label menyebut aksi persisnya, tanpa lorem ipsum |
 
-Satu hal "paling berani" per layar: hero identitas di Home; sisanya disiplin.
+Satu hal "paling berani" per layar: hero identitas di beranda dan panel merek di
+halaman masuk; sisanya disiplin.
 
-### 17.7 Lantai aksesibilitas (`DESIGN.md` §7 dan `AGENTS.md` §7)
+### 17.7 Lantai aksesibilitas (`DESIGN.md` §10 dan `AGENTS.md` §7)
 
-Kontras sesuai validator theme; fokus terlihat (`outline: 2px solid var(--theme-focus); outline-offset: 2px`) pada semua elemen interaktif; elemen semantik (`nav`, `main`, `button`, `a`, `label`, `fieldset/legend` untuk grup radio); setiap `input` punya label terprogram; error terhubung `aria-describedby`; ikon-saja punya nama aksesibel; status tidak hanya warna (ikon + teks); target ≥44×44 px; `prefers-reduced-motion`; teks tetap terbaca pada font sistem besar; pembaruan dinamis diumumkan lewat `aria-live`; `lang="id"`.
+Kontras sesuai validator theme, ditambah aturan tint di §17.3 (teks di atas permukaan ber-tint memakai token teks); fokus terlihat (`outline: 2px solid var(--theme-focus); outline-offset: 2px`) pada semua elemen interaktif; elemen semantik (`nav`, `main`, `button`, `a`, `label`, `fieldset/legend` untuk grup radio); setiap `input` punya label terprogram; error terhubung `aria-describedby`; ikon-saja punya nama aksesibel; status tidak hanya warna (ikon + teks); target ≥44×44 px; `prefers-reduced-motion`; teks tetap terbaca pada font sistem besar; pembaruan dinamis diumumkan lewat `aria-live`; `lang="id"`.
+
+Presedensi yang eksplisit: lantai aksesibilitas menang atas kerapatan. Karena
+itu ukuran tombol "kecil" 32–36 px dari `DESIGN.md` Appendix C **tidak** dipakai —
+kontrol terkecil di aplikasi ini 44 px (`min-h-11`), termasuk di desktop.
+
+### 17.8 Perangkat bentuk bersama dan deviasinya
+
+Perombakan UI menyatukan seluruh halaman pada satu perangkat bentuk. Yang baru
+bagi halaman berikutnya:
+
+| Elemen | Komponen | Dipakai di |
+|---|---|---|
+| Judul halaman + jejak navigasi + tile ikon | `PageHeader({ title, description, action, icon, breadcrumb })` | setiap halaman |
+| Jejak navigasi | `Breadcrumb({ items })` | halaman detail dan halaman ubah |
+| Kelompok berjudul ber-tile ikon | `Section({ tier, tone, icon })` | seluruh halaman |
+| Kartu dengan warna latar | `Card({ tier, tone: 'plain' \| 'band' \| 'accent' })` | beranda, pengaturan, halaman kelas |
+| Chip penyaring (state di URL) | `FilterTabs({ label, items })` | daftar tugas dan event |
+| Sub-navigasi pengaturan | `SettingsNav({ active })` + daftar tunggal `components/settings/entries.ts` | seluruh `/settings/**` |
+| Chip status | `Badge({ tone, icon })` | daftar tugas, antrean reset, profil |
+| Tile metrik | `OverviewStats` (pola `icon-tile` + angka `tabular-nums` + label) | beranda |
+| Empty/error/403–404 | `EmptyState`, `ErrorState`, `NoAccess`, `not-found.tsx` | seluruh aplikasi |
+| Panel merek | `AuthShell` (grid 45/55 di ≥1024 px, strip identitas di bawahnya) | masuk, aktivasi, konfirmasi tautan |
+| Galeri state | `/dev/ui` (tidak ada di produksi) | tinjauan desain |
+
+**Deviasi yang disengaja** (`DESIGN.md` §12 meminta deviasi disebut satu baris):
+
+1. Sub-navigasi pengaturan berbentuk chip yang menggulir mendatar, bukan rel di
+   sisi kiri seperti resep Appendix D. Dengan enam entri dan perangkat utama
+   ponsel, rel kiri akan menyisakan kolom isian yang sempit.
+2. Teks pada chip/badge status memakai token teks, bukan warna hue, karena
+   alasan kontras di §17.3.
+3. Tombol tanpa ukuran "kecil" 32–36 px, karena lantai target sentuh 44 px.
+4. Tautan di dalam kalimat dan tautan jejak navigasi tetap seukuran teksnya
+   (pengecualian „inline“ pada WCAG 2.5.8); yang diukur ≥44 px adalah tombol,
+   kontrol formulir, item navigasi, chip, dan tautan yang berdiri sendiri.
 
 ---
 

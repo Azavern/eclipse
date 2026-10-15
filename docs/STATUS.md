@@ -4,7 +4,7 @@ Catatan progres, temuan sementara, gap, dan keputusan. Aturan rekayasa ada di
 `AGENTS.md`, aturan desain di `DESIGN.md`, dan spesifikasi produk di
 `blueprint.md`. File ini hanya mencatat keadaan kerja.
 
-Terakhir diperbarui: 7 Oktober 2026.
+Terakhir diperbarui: 15 Oktober 2026.
 
 ---
 
@@ -20,7 +20,102 @@ Perubahan A-06 (antrean permintaan ganti kata sandi) sudah masuk commit
 `origin/main`. Perbaikan bug `<form>` bersarang sesudahnya (lihat bagian antrean
 ganti kata sandi) masih **lokal di working tree**, belum di-commit.
 
+`DESIGN.md` diganti dengan revisi baru (473 baris, aturan `[HARD]`/`[DEFAULT]`/
+`[CHECK]`, register · dial · Design Notes). Seluruh UI sudah diselaraskan dengan
+revisi itu; ringkasannya ada di bagian pertama di bawah, aturan visualnya
+sekarang ikut tinggal di `blueprint.md` §17.
+
 ---
+
+## Perombakan seluruh UI mengikuti DESIGN.md revisi baru (15 Oktober 2026)
+
+### Yang diminta
+
+`DESIGN.md` di root diganti dengan revisi baru, lalu “rombak seluruh UI dan ikuti
+aturan pada DESIGN.md, logika bisnis tetap”. Karena revisinya hanya berisi aturan
+(register, dial, token, states, responsif, aksesibilitas) dan bukan palet baru,
+yang berubah adalah **struktur visual dan perangkat bentuknya**, sedangkan
+identitas kelas (palet runtime "Warm Paper & Deep Ink") tetap dipakai — sesuai
+urutan otoritas `DESIGN.md` §12: sistem yang sudah ada menang atas default baru.
+
+### Yang diubah
+
+1. **Lapis token** (`src/styles/globals.css`): tint aksen & semantik turunan
+   (`-soft`/`-edge`), pita `band`, empat tingkat elevasi + glow, token motion
+   (120/80/200/320 ms), `body-lg`, `--content-max` 72rem → 84rem, kilau skeleton,
+   kelas `.press`, `.brand-panel`, `.glass-bar`, `::selection`, `text-wrap`
+   judul/paragraf, grid kartu 3 kolom ≥1440 px. Perbaikan ikut: `.skip-link`
+   memakai `var(--space-4)` yang **tidak pernah ada** (padding-nya tidak pernah
+   berlaku) dan sekarang memakai `calc(var(--spacing) * n)`.
+2. **Primitif bersama**: tombol dengan kelas `.press` + bayangan per varian;
+   kontrol form 44 px dengan hover border; `Badge` ber-tint + ikon ber-hue;
+   `EmptyState`/`ErrorState`/`NoAccess` bertile ikon; skeleton berkilau; dialog,
+   menu, dan toast memakai bayangan `high` + gerakan masuk; `Avatar` fallback
+   ber-tint aksen; `Section`/`PageHeader` dengan `icon`, `tone`, dan `breadcrumb`;
+   `FilterTabs` dan `SettingsNav` baru.
+3. **Shell**: `TopBar` berkaca dengan tile logo dan tautan anonim yang membungkus;
+   sidebar dengan pil ber-tint + bilah aksen; bottom nav dengan pil ikon dan
+   target 48 px.
+4. **Layar**: halaman masuk/aktivasi/konfirmasi memakai `AuthShell` split-screen
+   (45/55) dengan panel merek; beranda jadi dashboard (hero berpanel aksen, tile
+   metrik ber-ikon, grafik berlabel, strip anggota dalam kartu); daftar tugas dan
+   event memakai chip penyaring; baris daftar jadi kartu ber-tile ikon; halaman
+   detail tugas/event memakai jejak navigasi + strip fakta; halaman ubah memakai
+   kartu sekunder; pengaturan punya sub-navigasi tunggal dari
+   `components/settings/entries.ts` (menggantikan `SettingsBackLink`).
+5. **Bug tampilan yang ikut diperbaiki**: baris laporan kontras di `ThemeEditor`
+   tercetak dua kali ("Aksen utama di atas latar halaman — Aksen utama di atas
+   latar halaman — …"); sekarang dicetak sekali dengan ikon lulus/gagal.
+
+### Keputusan yang perlu diketahui
+
+- **Aturan tint.** Teks di atas permukaan ber-tint selalu memakai token teks,
+  bukan warna hue. `ThemeSchema` hanya menjamin warna semantik/aksen ≥4,5:1
+  terhadap `surface` dan `background`; di atas tint, rasio itu turun — dan palet
+  kelas yang persis di ambang 4,5:1 akan jatuh di bawah AA. Hue-nya dibawa latar,
+  garis (`-edge`), dan ikon (ambang 3:1 sebagai grafik bermakna). Aturan lengkap:
+  `blueprint.md` §17.3.
+- **Panel merek tidak membawa teks.** Gradien apa pun menggeser kontras di salah
+  satu ujungnya, jadi seluruh teks di halaman masuk duduk di kartu `surface` yang
+  mengambang di atas gradien; yang menempel di gradien hanya logo dan bentuk
+  dekoratif.
+- **Tanpa tombol ukuran "kecil" (32–36 px).** Lantai target sentuh 44 px
+  (`DESIGN.md` §10) berperingkat lebih tinggi daripada kerapatan.
+- **Sub-navigasi pengaturan berbentuk chip mendatar**, bukan rel kiri (deviasi
+  dari Appendix D, alasan di `blueprint.md` §17.8).
+- **Logika bisnis tidak disentuh**: Server Action, RPC, RLS, validasi Zod, aturan
+  visibilitas, dan skema database tetap sama. Tidak ada kolom, aturan, atau
+  jalur akses baru.
+
+### Verifikasi
+
+- `npm run check` hijau (tokens, batas lapisan, lint, typecheck) dan
+  `npm test` **176 tes / 13 berkas** hijau — tidak ada tes yang diubah.
+- `npm run build` sukses.
+- Browser sungguhan (Chrome, `localhost:3000`, server dev) di lebar 390 / 768 /
+  1280 px untuk `/login`, `/members`, `/events`, `/tasks`, `/settings`,
+  `/dev/ui`: semua 200, tidak ada gulir horizontal di ketiga lebar (sebelum
+  perbaikan `TopBar`, `/members` dan `/events` menggulir 64 px di 390 px), nol
+  pelanggaran axe serious/critical, nol error konsol dari aplikasi, dan Tab
+  pertama di `/login` mendarat di input dengan fokus terlihat (`outline: solid
+  2px`).
+- Skrip pemeriksa itu sementara (`scripts/ui-review.mjs`, dihapus setelah
+  dipakai) — belum ada harness e2e permanen.
+
+### Yang TIDAK terverifikasi
+
+- **Layar yang butuh sesi Ketua** (beranda yang sudah masuk, profil, tema,
+  visibilitas, pengelolaan anggota, form buat/ubah) tidak dibuka di browser:
+  akun Ketua hanya bisa masuk lewat tautan akses sekali pakai yang dipegang
+  pengguna, dan `npm run bootstrap` sengaja menolak berjalan karena kelas ini
+  sudah punya admin aktif. Halaman-halaman itu lolos typecheck, build, dan
+  memakai primitif yang sama dengan halaman yang sudah diperiksa; yang belum
+  dilihat mata adalah susunan akhirnya.
+- Tampilan cetak, mode gelap kelas (`class_identity_v.theme` dengan `background`
+  gelap), dan kontras pada palet kelas selain `DEFAULT_THEME` belum diperiksa di
+  browser.
+- Pembaca layar dan perangkat sentuh sungguhan tidak diuji.
+- Deployment produksi belum diuji.
 
 ## Yang sudah selesai
 
@@ -1519,6 +1614,74 @@ lokal), 27 cek:
 - Perangkat sentuh dan pembaca layar sungguhan tidak diuji; yang diperiksa
   adalah markup/ARIA, fokus, dan axe lewat browser.
 - Deployment produksi belum diuji.
+
+---
+## Tiga level visibilitas: Publik / Anggota / Ketua (9 Oktober 2026)
+
+Dropdown visibilitas sebelumnya menampilkan lima nilai enum **ditambah** opsi
+"Bawaan katalog (…)" / "Ikut aturan bawaan" / "Ikut aturan portofolio" untuk
+kembali ke default. Opsi default itu dihapus. Semua dropdown visibilitas —
+editor kelas di `/settings/visibility`, editor anggota di `/settings/profile`,
+dan select per item portofolio/tautan — kini hanya berisi tiga level, dan
+labelnya menyebut tingkat aksesnya:
+
+| Nilai tersimpan | Label opsi | Arti |
+|---|---|---|
+| `public` | Publik — siapa pun | bisa dilihat siapa saja, termasuk pengunjung tanpa login |
+| `class_member` | Anggota — semua yang login | hanya anggota kelas yang sudah login |
+| `class_admin` | Ketua — hanya admin | hanya Ketua (pengelola kelas) |
+
+Perubahan:
+
+- `src/lib/visibility/registry.ts`: `AUDIENCE_LEVELS`
+  (`public`/`class_member`/`class_admin`), `levelAllowed(key, level)`, dan
+  `toAudienceLevel(audience)` untuk memetakan nilai lama; `AUDIENCE_LABEL` dan
+  `AUDIENCE_HINT` memakai kalimat baru. Enum `visibility_audience` di database
+  **tidak diubah** (tetap lima nilai, tes paritas enum tetap hijau); yang
+  dibatasi hanya opsi yang dirender.
+- `VisibilityEditor`, `MemberVisibilityEditor`, dan `AudienceSelect`: tidak ada
+  lagi opsi default; nilai awal setiap select adalah level efektif yang berlaku
+  (`own` dari `get_visibility_map` untuk editor kelas/anggota, `effective` untuk
+  item), jadi yang terlihat = yang akan tersimpan.
+- Level yang lebih luas dari plafon katalog ditampilkan **nonaktif** dengan
+  keterangan "(tidak tersedia untuk bagian ini)", bukan dihilangkan, supaya
+  daftar tetap tiga opsi di semua baris: hanya `page.tasks` dan
+  `section.home.tasks` yang memblokir Publik (E11).
+- Konsekuensi privasi yang perlu diketahui: karena `self` tidak lagi ditawarkan,
+  pilihan tersempit milik anggota adalah **Ketua** — Ketua ikut melihat konten
+  itu, sedangkan sebelumnya `self` menyembunyikannya dari Ketua (D-18). Tidak
+  ada baris `self` di kelas ini, jadi tidak ada data yang berubah; enum di
+  database tetap menerimanya kalau nanti diputuskan dibuka lagi.
+- Otorisasi tidak disentuh: `save_class_visibility` tetap butuh `class.manage`,
+  `save_my_visibility` tetap hanya menulis baris `owner_id = auth.uid()`, dan
+  plafon `widest` + langit-langit page tetap ditegakkan RPC/trigger/RLS. Nilai
+  `authenticated`/`self` masih sah di database dan ditampilkan pada level
+  terdekat (`class_member`/`class_admin`) supaya Select tidak pernah kosong.
+
+Verifikasi (sesi Ketua sungguhan lewat tautan akses, Chrome, `localhost:3000`):
+
+- 20 dropdown di `/settings/visibility`, 5 di `/settings/profile`, dan 2 select
+  item (portofolio + tautan) **semuanya tepat tiga opsi** dengan label di atas;
+  teks "Bawaan katalog"/"Ikut aturan bawaan" tidak ada lagi di halaman.
+- `page.tasks` menampilkan tiga opsi dengan Publik nonaktif.
+- Simpan lewat UI (`page.events` → `class_member`) berhasil, nilai kembali
+  tampil setelah reload, dan baris `visibility_rules` cocok dengan pilihan —
+  RPC menerima level baru. Semua 20 key yang dirender ikut tersimpan.
+- `npm run check` hijau, `npm test` 13 berkas / 176 tes hijau (6 tes baru untuk
+  `AUDIENCE_LEVELS`, `levelAllowed`, `toAudienceLevel`), `npm run build` sukses.
+- Data uji dipulihkan: dua baris `visibility_rules` yang dibuat saat uji dihapus
+  dan `page.events` dikembalikan ke nilai semula, sehingga 18 baris yang sudah
+  ada kembali utuh.
+
+### Yang TIDAK terverifikasi
+
+- Tombol simpan di editor anggota dan di form item tidak diklik di browser;
+  yang diperiksa untuk keduanya adalah daftar opsinya. `save_my_visibility`
+  sudah diuji pada sesi sebelumnya.
+- Pemetaan nilai lama `authenticated`/`self`: tidak ada baris seperti itu di
+  kelas ini, jadi hanya diuji lewat unit test, bukan data nyata.
+- Aksesibilitas lanjutan (pembaca layar, kontras terukur) dan deploy produksi
+  belum diuji.
 
 ---
 ## Desain Stitch vs blueprint

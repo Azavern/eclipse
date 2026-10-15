@@ -1,17 +1,19 @@
 @import 'tailwindcss';
 
 /* ==========================================================================
-   Lapis token statis (blueprint §17.3)
+   Lapis token statis (blueprint §17.3, DESIGN.md §7)
    Nilai ini tidak dapat diubah pengguna. Token runtime (--theme-*) disuntik
    dari classes.theme oleh buildThemeCss() di root layout, dan dipetakan ke
-   --color-* di bawah. Komponen HANYA boleh memakaiutility yang dipetakan ke
+   --color-* di bawah. Komponen HANYA boleh memakai utility yang dipetakan ke
    token; scripts/check-tokens.mjs menolak hex dan nilai arbitrer.
    ========================================================================== */
 
 @theme {
-  /* Spasi: 4 8 12 16 24 32 48 64 96 */
+  /* Spasi (DESIGN.md §7): 4 8 12 16 24 32 48 64 96 */
   --spacing: 0.25rem;
 
+  /* Tipografi (DESIGN.md §7). Dua tingkat body: `body` untuk UI, `body-lg`
+     untuk deskripsi panjang yang dibaca sebagai paragraf. */
   --text-display: 2rem;
   --text-display--line-height: 1.15;
   --text-h1: 1.75rem;
@@ -20,6 +22,8 @@
   --text-h2--line-height: 1.25;
   --text-h3: 1.125rem;
   --text-h3--line-height: 1.3;
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.55;
   --text-body: 1rem;
   --text-body--line-height: 1.6;
   --text-small: 0.875rem;
@@ -29,16 +33,18 @@
   --text-label: 0.875rem;
   --text-label--line-height: 1.2;
 
-  /* Radius menurut hierarki, bukan seragam */
+  /* Radius menurut hierarki, bukan seragam (DESIGN.md §7): kecil untuk
+     chip/input, sedang untuk tombol dan kartu, besar untuk dialog dan panel
+     hero, penuh untuk avatar. */
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 1rem;
   --radius-full: 9999px;
 
-  /* Elevasi (DESIGN.md §4): none / low / medium / high, plus satu glow yang
-     dipakai HANYA oleh card Primer. Glow menandai prioritas informasi
-     tertinggi — ia sinyal, bukan dekorasi. Diturunkan dari warna runtime supaya
-     ikut berubah saat tema kelas diganti. */
+  /* Elevasi (DESIGN.md §6): tiga tingkat + satu glow yang dipakai HANYA oleh
+     card Primer. Glow menandai prioritas informasi tertinggi — ia sinyal,
+     bukan dekorasi. Diturunkan dari warna runtime supaya ikut berubah saat
+     tema kelas diganti. */
   --shadow-low: 0 1px 2px 0 color-mix(in oklab, var(--color-text) 10%, transparent);
   --shadow-medium:
     0 2px 4px -1px color-mix(in oklab, var(--color-text) 12%, transparent),
@@ -82,8 +88,61 @@
      ghost serta seluruh skeleton tidak pernah terlihat. */
   --color-surface-dim: color-mix(in oklab, var(--theme-surface) 90%, var(--theme-text-secondary));
 
-  /* Panjang layout */
-  --container-content: 72rem;
+  /* Pita permukaan untuk memisahkan kelompok besar (mis. header halaman di atas
+     daftar, panel ringkasan di atas form). Warnanya condong ke aksen, bukan
+     abu-abu netral, supaya masih terbaca sebagai bagian dari tema kelas
+     (DESIGN.md §6: "tinted section bands"). Tetap sangat muda — teks dan
+     kontrol di atasnya memakai pasangan kontras yang sama dengan `surface`. */
+  --color-band: color-mix(in oklab, var(--color-primary) 6%, var(--color-surface));
+
+  /* ------------------------------------------------------------------
+     Tint aksen dan semantik (DESIGN.md §6 dan §7).
+
+     Setiap hue punya dua tingkat: `-soft` untuk latar penyorot (chip, tile
+     ikon, panel status) dan `-edge` untuk garisnya. Keduanya dihitung dari
+     warna runtime, jadi tidak ada hue kedua yang harus dijaga terpisah saat
+     Ketua mengganti palet kelas.
+
+     Persentasenya sengaja kecil (10% untuk latar, 30% untuk garis): warna
+     semantik hanya dijamin kontras terhadap `surface` dan `background` oleh
+     ThemeSchema, sehingga latar ber-tint tidak boleh menggeser kontras teksnya
+     lebih dari sedikit. Karena itu isi chip status memakai `--color-text`
+     (pasangan kontras yang memang dijamin) dan warnanya dibawa oleh ikon,
+     garis, serta latar tint-nya — bukan oleh teks berwarna di atas tint.
+     ------------------------------------------------------------------ */
+  --color-primary-soft: color-mix(in oklab, var(--color-primary) 10%, var(--color-surface));
+  --color-primary-edge: color-mix(in oklab, var(--color-primary) 30%, var(--color-surface));
+  --color-secondary-soft: color-mix(in oklab, var(--color-secondary) 10%, var(--color-surface));
+  --color-secondary-edge: color-mix(in oklab, var(--color-secondary) 30%, var(--color-surface));
+  --color-success-soft: color-mix(in oklab, var(--color-success) 10%, var(--color-surface));
+  --color-success-edge: color-mix(in oklab, var(--color-success) 30%, var(--color-surface));
+  --color-warning-soft: color-mix(in oklab, var(--color-warning) 12%, var(--color-surface));
+  --color-warning-edge: color-mix(in oklab, var(--color-warning) 34%, var(--color-surface));
+  --color-error-soft: color-mix(in oklab, var(--color-error) 10%, var(--color-surface));
+  --color-error-edge: color-mix(in oklab, var(--color-error) 30%, var(--color-surface));
+  /* Info tidak punya warna sendiri di palet runtime; ia memakai hue sekunder
+     supaya tetap satu keluarga dengan aksen kelas. */
+  --color-info-soft: var(--color-secondary-soft);
+  --color-info-edge: var(--color-secondary-edge);
+
+  /* ------------------------------------------------------------------
+     Motion (DESIGN.md Appendix E). Durasi dan easing jadi token supaya
+     interaksi yang berbeda tidak memakai angka yang berbeda-beda.
+     ------------------------------------------------------------------ */
+  --motion-fast: 120ms;
+  --motion-press: 80ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Animasi turunan dipakai lewat utility `animate-*`. */
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-rise: rise var(--motion-slow) var(--ease-standard) both;
+
+  /* Panjang layout. Content melebar mengikuti jendela (DESIGN.md §5) tapi tetap
+     dibatasi supaya baris teks tidak jadi terlalu panjang; `form` tetap sempit
+     karena itu panjang baca yang nyaman untuk satu kolom isian. */
+  --container-content: 84rem;
   --container-form: 40rem;
   --spacing-sidebar: 16rem;
 
@@ -93,9 +152,8 @@
   --z-dialog: 50;
 }
 
-/* Font di-host sendiri oleh next/font (§17.4: tanpa Inter/Roboto/system-ui).
-   Hanya font preset yang aktif yang menerima class, sehingga hanya itu yang
-   dipreload. */
+/* Font di-host sendiri oleh next/font (blueprint §17.4: tanpa Inter/Roboto/
+   system-ui). Hanya font preset yang aktif yang menerima class, sehingga hanya     itu yang dipreload. */
 @theme inline {
   --font-display: var(--font-class-display), Georgia, serif;
   --font-body: var(--font-class-body), system-ui, sans-serif;
@@ -112,6 +170,30 @@
     --text-h2--line-height: 1.25;
     --text-h3: 1.25rem;
     --text-h3--line-height: 1.3;
+    --text-body-lg: 1.1875rem;
+    --text-body-lg--line-height: 1.6;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Muncul sekali untuk panel yang datang terlambat (dialog, panel pita). Gerak
+   kecil dan sekali jalan — bukan animasi latar yang berulang (DESIGN.md §6). */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -126,7 +208,7 @@
 
   html {
     /* Mencegah <body> menggulir horizontal; tabel lebar menggulir di dalam
-       kontainernya sendiri (§16). */
+       kontainernya sendiri (blueprint §16). */
     overflow-x: hidden;
   }
 
@@ -138,19 +220,40 @@
     line-height: 1.6;
   }
 
-  /* Fokus terlihat pada semua elemen interaktif (§17.7). */
+  /* Pilihan teks memakai aksen kelas: satu sentuhan identitas yang tetap
+     fungsional (menandai apa yang sedang dipilih). */
+  ::selection {
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  /* Fokus terlihat pada semua elemen interaktif (DESIGN.md §10). */
   :focus-visible {
     outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
 
-  /* Baris baru pada konten pengguna dipertahankan (§14.1). */
+  /* Baris baru pada konten pengguna dipertahankan (blueprint §14.1). */
   p[data-pre-line],
   li[data-pre-line] {
     white-space: pre-line;
   }
 
-  /* Kurangi motion bila diminta pengguna: semua durasi jadi 0 (§11.4). */
+  /* Judul panjang tidak boleh menyisakan satu kata di baris terakhir, dan
+     paragraf pendek tidak boleh terpecah jelek. Fitur teks ini murni tipografi,
+     jadi ia tinggal di lapis base. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Kurangi motion bila diminta pengguna: semua durasi jadi 0 (blueprint §11.4,
+     DESIGN.md §10). */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -165,12 +268,37 @@
 
 @layer components {
   /* Transisi fungsional untuk kontrol: hanya properti yang berubah saat
-     interaksi, bukan fade-in per section. Sejak 7 Oktober 2026 card dan tombol
-     memang mengangkat diri saat disentuh; itu ada di `.card-interactive` dan
-     pada `Button`, bukan di sini. */
+     interaksi, bukan fade-in per section. */
   .transition-func {
-    transition-duration: 150ms;
-    transition-timing-function: ease-out;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+
+  /* ------------------------------------------------------------------
+     Tekan (DESIGN.md Appendix E): hover mengangkat 1px, tekan mengecil
+     0.98 dan kembali turun. Satu kelas untuk semua tombol supaya seluruh
+     affordance tombol di aplikasi ini bergerak dengan cara yang sama.
+     `:disabled` dan `aria-busy` tidak ikut bergerak — tombol yang tidak bisa
+     dipakai tidak boleh terlihat seperti bisa dipakai.
+     ------------------------------------------------------------------ */
+  .press {
+    transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+
+  .press:hover {
+    transform: translateY(-1px);
+  }
+
+  .press:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: var(--motion-press);
+  }
+
+  .press:disabled:hover,
+  .press[aria-busy='true']:hover {
+    transform: none;
   }
 
   /* Motion card: hanya transform, shadow, dan warna garis — bukan seluruh
@@ -178,17 +306,21 @@
      latar di dalamnya. Durasi jadi 0.01ms saat pengguna meminta reduced motion,
      karena aturan global di atas memaksa transition-duration.
 
-     Angka lift dan up-size ada di sini, bukan di utility, supaya seragam di
-     semua tingkat card: yang membedakan prioritas adalah garis dan bayangan,
-     bukan seberapa besar card melompat saat disentuh. */
+     Angka lift ada di sini, bukan di utility, supaya seragam di semua tingkat
+     card: yang membedakan prioritas adalah garis dan bayangan, bukan seberapa
+     besar card melompat saat disentuh. */
   .card-interactive {
-    transition-property: transform, box-shadow, border-color;
-    transition-duration: 180ms;
-    transition-timing-function: ease-out;
+    transition-property: transform, box-shadow, border-color, background-color;
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--ease-standard);
   }
 
   .card-interactive:hover {
-    transform: translateY(calc(var(--spacing) * -1)) scale(1.02);
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  .card-interactive:active {
+    transform: translateY(0) scale(0.995);
   }
 
   /* Bayangan saat disentuh diberikan per tingkat, dan hanya pada card yang
@@ -207,7 +339,118 @@
     box-shadow: var(--shadow-low);
   }
 
-  /* Deretan kartu: satu kolom di mobile, dua kolom seragam dari 1024px.
+  /* ------------------------------------------------------------------
+     Tile ikon (DESIGN.md §6): satu bentuk berulang untuk ikon di daftar,
+     kartu statistik, empty state, dan nav. Latar ber-tint memisahkannya
+     dari teks tanpa menambah satu pun warna baru.
+     ------------------------------------------------------------------ */
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  .icon-tile-neutral {
+    background-color: var(--color-surface-dim);
+    color: var(--color-text-muted);
+  }
+
+  .icon-tile-info {
+    background-color: var(--color-info-soft);
+    color: var(--color-secondary);
+  }
+
+  .icon-tile-success {
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  .icon-tile-warning {
+    background-color: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+
+  .icon-tile-error {
+    background-color: var(--color-error-soft);
+    color: var(--color-error);
+  }
+
+  /* ------------------------------------------------------------------
+     Panel aksen untuk halaman masuk dan aktivasi (DESIGN.md Appendix D).
+
+     Gradiennya tetap satu hue: aksen kelas, dilembutkan ke arah permukaan di
+     satu ujung dan digelapkan ke arah tinta di ujung lain, plus satu lingkaran
+     cahaya sebagai tekstur.
+
+     Panel ini SENGAJA tidak membawa teks apa pun. Warna semantik kelas hanya
+     dijamin kontras oleh ThemeSchema terhadap `primary` itu sendiri dan
+     terhadap `surface`; begitu latarnya digradasi, jaminan itu hilang di salah
+     satu ujung gradien — untuk palet yang persis di ambang 4.5:1, pergeseran
+     beberapa persen saja sudah menjatuhkannya. Karena itu seluruh teks di
+     panel ini duduk di kartu `surface` yang mengambang di atasnya, dan yang
+     benar-benar menempel di gradien hanya logo (gambar) dan bentuk dekoratif.
+     ------------------------------------------------------------------ */
+  .brand-panel {
+    background-color: var(--color-primary);
+    background-image:
+      radial-gradient(
+        circle at 16% 8%,
+        color-mix(in oklab, var(--color-on-primary) 18%, transparent) 0,
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 88% 92%,
+        color-mix(in oklab, var(--color-on-primary) 12%, transparent) 0,
+        transparent 38%
+      ),
+      linear-gradient(
+        158deg,
+        color-mix(in oklab, var(--color-primary) 88%, var(--color-surface)) 0%,
+        var(--color-primary) 52%,
+        color-mix(in oklab, var(--color-primary) 84%, var(--color-text)) 100%
+      );
+  }
+
+  /* Kaca untuk bar yang menempel di atas konten yang menggulir (DESIGN.md §6).
+     Latar tetap permukaan supaya kontras teks tidak bergantung pada apa yang
+     kebetulan lewat di belakangnya. */
+  .glass-bar {
+    background-color: color-mix(in oklab, var(--color-surface) 88%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  /* ------------------------------------------------------------------
+     Skeleton (DESIGN.md §6: "skeleton shimmer"). Bentuknya tetap mengikuti
+     konten aslinya; yang ditambahkan hanya kilau yang berjalan pelan supaya
+     bagian yang sedang dimuat terbaca sebagai "sedang bekerja", bukan sebagai
+     kotak abu-abu yang mati. Saat pengguna meminta reduced motion, kilaunya
+     berhenti dan yang tersisa hanya permukaan redup.
+     ------------------------------------------------------------------ */
+  .skeleton {
+    background-color: var(--color-surface-dim);
+    background-image: linear-gradient(
+      90deg,
+      var(--color-surface-dim) 0%,
+      color-mix(in oklab, var(--color-surface) 55%, var(--color-surface-dim)) 50%,
+      var(--color-surface-dim) 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      background-image: none;
+    }
+  }
+
+  /* Deretan kartu: satu kolom di mobile, dua kolom dari 1024px, tiga kolom dari
+     1440px supaya jendela lebar benar-benar terpakai (DESIGN.md §5).
 
      Memakai flex-wrap, bukan `display: grid`, justru karena flex bisa mengurus
      sisa baris dengan sendirinya: `flex-grow: 1` membuat kartu terakhir pada
@@ -221,7 +464,7 @@
      diklik akan dipaksa melebar penuh dan susunannya runtuh jadi satu kolom.
 
      `min-width: 0` menahan tabel lebar agar menggulir di dalam kontainernya
-     sendiri, bukan melebarkan barisnya (§16). */
+     sendiri, bukan melebarkan barisnya (blueprint §16). */
   .card-grid {
     --card-grid-gap: calc(var(--spacing) * 6);
     display: flex;
@@ -248,12 +491,18 @@
     }
   }
 
+  @media (width >= 1440px) {
+    .card-grid > .card-cell {
+      flex: 1 1 calc(33.333% - var(--card-grid-gap) * 2 / 3);
+    }
+  }
+
   .skip-link {
     position: absolute;
-    left: var(--space-4);
-    top: var(--space-4);
+    left: calc(var(--spacing) * 4);
+    top: calc(var(--spacing) * 4);
     z-index: var(--z-dialog);
-    padding: var(--space-2) var(--space-4);
+    padding: calc(var(--spacing) * 2) calc(var(--spacing) * 4);
     background-color: var(--color-surface);
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);

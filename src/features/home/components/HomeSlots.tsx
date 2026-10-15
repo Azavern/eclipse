@@ -4,6 +4,14 @@ import {
   getRecentMembers,
   getUpcoming,
 } from '@/features/home/queries';
+import {
+  Activity,
+  BarChart3,
+  CalendarDays,
+  ClipboardList,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { getViewer } from '@/lib/visibility/server';
 import { ButtonLink } from '@/components/ui/Button';
 import {
@@ -44,6 +52,7 @@ export async function UpcomingSlot({
           tier="primary"
           title="Jadwal"
           description="Jadwal kuliah dan kegiatan kelas."
+          icon={<CalendarDays className="size-5" />}
           action={<ButtonLink href="/schedule" variant="ghost" size="md">Buka jadwal</ButtonLink>}
         >
           <UpcomingList
@@ -59,6 +68,7 @@ export async function UpcomingSlot({
           tier="secondary"
           title="Tugas"
           description="Tugas dengan tenggat terdekat."
+          icon={<ClipboardList className="size-5" />}
           action={<ButtonLink href="/tasks" variant="ghost" size="md">Buka tugas</ButtonLink>}
         >
           <UpcomingList
@@ -74,6 +84,7 @@ export async function UpcomingSlot({
           tier="secondary"
           title="Event"
           description="Event mendatang."
+          icon={<Sparkles className="size-5" />}
           action={<ButtonLink href="/events" variant="ghost" size="md">Buka event</ButtonLink>}
         >
           <UpcomingList
@@ -93,7 +104,12 @@ export async function OverviewSlot() {
   if (!overview) return null;
 
   return (
-    <HomeSection tier="secondary" title="Ringkasan" description="Angka agregat kelas minggu ini.">
+    <HomeSection
+      tier="secondary"
+      title="Ringkasan"
+      description="Angka agregat kelas minggu ini."
+      icon={<BarChart3 className="size-5" />}
+    >
       <OverviewStats overview={overview} />
     </HomeSection>
   );
@@ -103,7 +119,12 @@ export async function ActivitySlot({ timezone }: { timezone: string }) {
   const rows = await getActivityTrend();
 
   return (
-    <HomeSection tier="tertiary" title="Aktivitas" description="Jumlah kejadian dalam 4 minggu terakhir.">
+    <HomeSection
+      tier="tertiary"
+      title="Aktivitas"
+      description="Jumlah kejadian dalam 4 minggu terakhir."
+      icon={<Activity className="size-5" />}
+    >
       <ActivityTrend rows={rows} timezone={timezone} />
     </HomeSection>
   );
@@ -113,7 +134,12 @@ export async function MembersSlot() {
   const members = await getRecentMembers();
 
   return (
-    <HomeSection tier="secondary" title="Anggota" description="Anggota yang terbaru bergabung.">
+    <HomeSection
+      tier="secondary"
+      title="Anggota"
+      description="Anggota yang terbaru bergabung."
+      icon={<Users className="size-5" />}
+    >
       <MembersStrip members={members} />
     </HomeSection>
   );

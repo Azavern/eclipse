@@ -4,8 +4,9 @@ import { getClassIdentity } from '@/features/class/queries';
 import { getTaskById } from '@/features/tasks/queries';
 import { EditTaskForm } from '@/features/tasks/components/TaskForm';
 import { DEFAULT_TIMEZONE, utcIsoToLocalInput } from '@/lib/time';
-import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { Pencil } from 'lucide-react';
+import { Breadcrumb, PageHeader } from '@/components/ui/Section';
+import { Card } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 
@@ -42,12 +43,22 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
+        breadcrumb={
+          <Breadcrumb
+            items={[
+              { href: '/tasks', label: 'Tugas' },
+              { href: `/tasks/${task.id}`, label: task.title },
+              { label: 'Ubah' },
+            ]}
+          />
+        }
         title="Ubah tugas"
         description={`Menyimpan di sini mengubah tugas "${task.title}", bukan membuat tugas baru.`}
+        icon={<Pencil className="size-5" />}
         action={<ButtonLink href={`/tasks/${task.id}`} variant="secondary">Batal</ButtonLink>}
       />
 
-      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
+      <Card tier="secondary" className="max-w-form p-5">
         <EditTaskForm
           id={task.id}
           title={task.title}
@@ -60,7 +71,7 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
             url: task.url ?? '',
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

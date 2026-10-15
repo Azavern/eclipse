@@ -48,7 +48,12 @@ export function ForgotPasswordForm() {
       </Button>
 
       {open ? (
-        <div id={panelId} className="flex flex-col gap-4 rounded-md border border-border-subtle p-4">
+        // Pita ber-tint memisahkan panel ini dari isi kartu di atasnya tanpa
+        // menambah warna baru (DESIGN.md §6: „tinted section bands“).
+        <div
+          id={panelId}
+          className="flex flex-col gap-4 rounded-md border border-border-subtle bg-band p-4"
+        >
           <p className="text-small text-text-muted">
             Tidak ada email yang dikirim otomatis di kelas ini. Isi emailmu, lalu minta Ketua
             menerbitkan tautan ganti kata sandi dan kirimkan lewat WhatsApp.

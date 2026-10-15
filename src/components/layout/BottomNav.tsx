@@ -8,10 +8,15 @@ import { isActive } from './SidebarNav';
 
 /**
  * Bottom nav untuk mobile dan tablet (<1024px), hanya untuk pengguna login
- * (§16). Setiap item minimal 44x44px agar target sentuh memenuhi (§17.7).
+ * (blueprint §16). Setiap item minimal 48px agar target sentuh memenuhi
+ * (DESIGN.md §10).
  *
  * Item yang tidak boleh dibuka ikut disembunyikan di sini, sama seperti di
  * sidebar, karena keduanya membaca daftar nav yang sama.
+ *
+ * Item aktif ditandai pil ber-tint di belakang ikon plus label semibold: labelnya
+ * tetap memakai token teks sementara warnanya dibawa ikon dan latar, sehingga
+ * kontrasnya tidak bergantung pada palet kelas (DESIGN.md §10).
  */
 export function BottomNav({ items }: { items: readonly NavEntry[] }) {
   const pathname = usePathname();
@@ -20,7 +25,7 @@ export function BottomNav({ items }: { items: readonly NavEntry[] }) {
     <nav
       aria-label="Navigasi utama"
       // pb-safe menjaga tombol tidak tertutup gesture bar iOS/Android.
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border-subtle bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="glass-bar fixed inset-x-0 bottom-0 z-50 border-t border-border-subtle pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <ul className="mx-auto flex max-w-content items-stretch justify-around">
         {items.map((item) => {
@@ -31,11 +36,17 @@ export function BottomNav({ items }: { items: readonly NavEntry[] }) {
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-11 flex-col items-center justify-center gap-0.5 px-1 py-2 text-caption transition-func ${
-                  active ? 'border-t-2 border-primary font-semibold text-primary' : 'text-text-muted'
+                className={`press flex min-h-12 flex-col items-center justify-center gap-0.5 px-1 py-2 text-caption ${
+                  active ? 'font-semibold text-text' : 'text-text-muted'
                 }`}
               >
-                <Icon aria-hidden="true" className="size-5 shrink-0" />
+                <span
+                  className={`flex size-8 items-center justify-center rounded-full ${
+                    active ? 'bg-primary-soft text-primary' : ''
+                  }`}
+                >
+                  <Icon aria-hidden="true" className="size-5 shrink-0" />
+                </span>
                 {item.label}
               </Link>
             </li>

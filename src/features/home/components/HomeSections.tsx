@@ -1,7 +1,22 @@
 import Link from 'next/link';
-import { ArrowRight, CalendarDays, ClipboardList, Sparkles } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarDays,
+  ClipboardList,
+  Clock3,
+  Megaphone,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { Section } from '@/components/ui/Section';
-import { CARD_BASE, CARD_INTERACTIVE, CARD_TIER_CLASSES, type CardTier } from '@/components/ui/Card';
+import {
+  CARD_BASE,
+  CARD_INTERACTIVE,
+  CARD_TIER_CLASSES,
+  CARD_TONE_CLASSES,
+  type CardTier,
+  type CardTone,
+} from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
 import { AvatarFromPath } from '@/components/storage/AvatarFromPath';
 import { StorageImage } from '@/components/storage/StorageImage';
@@ -14,19 +29,20 @@ import type { RecentMemberSummary } from '@/features/home/queries';
 
 /**
  * Komponen section Home. Semua Server Component; tidak ada state klien
- * (§11.1).
+ * (blueprint §11.1).
  *
- * Bentuk visual mengikuti sistem desain Stitch "Warm Paper & Deep Ink Academic
- * System" yang tersimpan di stitch_ui_system/: hero tipografi di atas surface
- * dengan garis pemisah 1px, tipografi Fraunces untuk heading dan Source Sans 3
- * untuk isi, daftar bersekat alih-alih kartu-kartu seragam.
+ * Bahasa visualnya tetap milik sistem desain kelas "Warm Paper & Deep Ink"
+ * (stitch_ui_system/): kertas hangat, tinta pekat, satu aksen, tipografi
+ * display untuk judul. Yang mengikuti revisi DESIGN.md adalah susunannya —
+ * hirarki lewat ukuran dan jarak, tile ikon sebagai jangkar visual, permukaan
+ * ber-tint untuk kelompok yang berbeda, dan angka besar bertabular untuk metrik.
  *
  * Yang TIDAK diambil dari desain Stitch karena tidak ada sumber datanya di skema:
  * tahun akademik, semester, "Program Studi", jumlah mahasiswa, dan sakelar
  * peran. Lihat docs/STATUS.md untuk catatan lengkap.
  */
 
-/** Elemen paling berani di halaman ini: hero identitas kelas (§11.6). */
+/** Elemen paling berani di halaman ini: hero identitas kelas (DESIGN.md §6). */
 export function HomeHero({
   name,
   tagline,
@@ -51,13 +67,13 @@ export function HomeHero({
       width={1600}
       height={900}
       priority
-      className="h-40 w-full rounded-md border border-border-subtle object-cover md:h-52"
+      className="h-40 w-full rounded-md border border-border-subtle object-cover md:h-56"
     />
   ) : null;
 
   return (
     <section
-      className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} flex flex-col gap-4 overflow-hidden p-5`}
+      className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} ${CARD_TONE_CLASSES.accent} flex flex-col gap-5 overflow-hidden p-5`}
       aria-labelledby="hero-name"
     >
       {cover}
@@ -66,18 +82,24 @@ export function HomeHero({
         <h1 id="hero-name" className="font-display text-display font-semibold text-text">
           {name}
         </h1>
-        {tagline ? <p className="text-h3 text-text-muted">{tagline}</p> : null}
+        {tagline ? <p className="font-display text-h3 text-text-muted">{tagline}</p> : null}
         {description ? (
-          <p data-pre-line className="max-w-2xl text-body text-text-muted">
+          <p data-pre-line className="max-w-prose text-body-lg text-text-muted">
             {description}
           </p>
         ) : null}
-        <p className="text-caption text-text-muted">Zona waktu kelas: {zoneLabel(timezone)}</p>
+        <p className="flex items-center gap-1.5 text-caption text-text-muted">
+          <Clock3 aria-hidden="true" className="size-3.5 shrink-0" />
+          Zona waktu kelas: {zoneLabel(timezone)}
+        </p>
       </div>
 
       {/* Sorotan = satu teks + tautan opsional (A-10). */}
       {highlightText ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border-subtle bg-surface px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border-subtle bg-surface px-4 py-3">
+          <span className="icon-tile size-8" aria-hidden="true">
+            <Megaphone className="size-4" />
+          </span>
           <span className="text-label font-semibold text-primary">Sorotan</span>
           <span className="text-small text-text">{highlightText}</span>
           {highlightUrl ? (
@@ -88,6 +110,7 @@ export function HomeHero({
               className="inline-flex items-center gap-1 text-label font-semibold text-primary underline underline-offset-4"
             >
               Buka
+              <ArrowRight aria-hidden="true" className="size-4" />
             </a>
           ) : null}
         </div>
@@ -97,15 +120,16 @@ export function HomeHero({
 }
 
 const KIND_META = {
-  schedule: { label: 'Jadwal kuliah', Icon: CalendarDays },
-  event: { label: 'Event', Icon: Sparkles },
-  task: { label: 'Tenggat tugas', Icon: ClipboardList },
+  schedule: { label: 'Jadwal kuliah', Icon: CalendarDays, tone: 'icon-tile-info' },
+  event: { label: 'Event', Icon: Sparkles, tone: 'icon-tile' },
+  task: { label: 'Tenggat tugas', Icon: ClipboardList, tone: 'icon-tile-warning' },
 } as const;
 
 /**
- * Tiga daftar bersekat (jadwal | event | tugas), bukan tiga kartu identik —
- * §17.6 menolak pola "tiga kartu seragam" itu. Tiap item memuat judul dan
- * waktu supaya informasi penting terbaca tanpa membuka halaman lain (AC-HOME-3).
+ * Tiga daftar (jadwal | event | tugas), masing-masing dengan judul sectionnya.
+ * Tiap baris adalah satu kartu dengan tile ikon: judul dan waktu terbaca tanpa
+ * membuka halaman lain (AC-HOME-3), dan jenis agenda dikenali dari ikonnya
+ * sebelum dibaca (DESIGN.md §6).
  */
 export function UpcomingList({
   entries,
@@ -119,7 +143,7 @@ export function UpcomingList({
   if (entries.length === 0) {
     return (
       <EmptyState
-        title={canManage ? 'Belum ada agenda mendatang.' : 'Belum ada agenda mendatang.'}
+        title="Belum ada agenda mendatang."
         description={
           canManage
             ? 'Jadwal, event, dan tugas yang kamu tambahkan akan muncul di sini.'
@@ -133,20 +157,32 @@ export function UpcomingList({
   return (
     <div className="flex flex-col gap-3">
       {entries.map((entry) => {
-        const { label, Icon } = KIND_META[entry.kind];
+        const { label, Icon, tone } = KIND_META[entry.kind];
         const body = (
-          <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <span className="text-body font-semibold text-text">{entry.title}</span>
+          <div className="flex items-start gap-3">
+            <span className={`${tone} size-10`} aria-hidden="true">
+              <Icon className="size-5" />
+            </span>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <span className="text-body font-semibold text-text">{entry.title}</span>
+                <span className="tabular-nums text-small text-text-muted">
+                  {formatDay(entry.at, timezone)} · {formatTime(entry.at, timezone)}
+                </span>
+              </div>
               <span className="text-small text-text-muted">
-                {formatDay(entry.at, timezone)} · {formatTime(entry.at, timezone)}
+                {label}
+                {entry.meta ? <span> · {entry.meta}</span> : null}
               </span>
             </div>
-            <span className="flex items-center gap-1.5 text-small text-text-muted">
-              <Icon aria-hidden="true" className="size-4 shrink-0" />
-              {label}
-              {entry.meta ? <span> · {entry.meta}</span> : null}
-            </span>
+
+            {entry.href ? (
+              <ArrowRight
+                aria-hidden="true"
+                className="mt-2.5 size-4 shrink-0 text-text-muted"
+              />
+            ) : null}
           </div>
         );
 
@@ -176,31 +212,49 @@ export function UpcomingList({
 }
 
 /**
- * Metrik overview. Nilai NULL tidak dirender sama sekali; nilai 0 ditulis
- * kalimat, bukan angka besar "0" (AC-HOME-4). Dipisah dari Upcoming dengan
- * garis, bukan kartu.
+ * Metrik overview sebagai tile KPI (DESIGN.md Appendix D: „a row of 3–4 KPI
+ * tiles — icon in a tinted square, number, label“).
+ *
+ * Nilai NULL tidak dirender sama sekali; nilai 0 ditulis sebagai kalimat, bukan
+ * angka besar "0" (AC-HOME-4). Label tetap berada di DOM sebelum nilainya
+ * (`dt` → `dd`) tapi tampil di bawah angka lewat `flex-col-reverse`, sehingga
+ * struktur datanya benar dan susunan visual tetap "angka dulu".
  */
 export function OverviewStats({ overview }: { overview: HomeOverview }) {
-  const metrics: { label: string; value: number | null; empty: string }[] = [
+  const metrics: {
+    label: string;
+    value: number | null;
+    empty: string;
+    Icon: typeof Users;
+    tone: string;
+  }[] = [
     {
       label: 'Anggota aktif',
       value: overview.members_count,
       empty: 'Belum ada anggota aktif',
+      Icon: Users,
+      tone: 'icon-tile',
     },
     {
       label: 'Event mendatang',
       value: overview.upcoming_events_count,
       empty: 'Tidak ada event mendatang',
+      Icon: Sparkles,
+      tone: 'icon-tile-info',
     },
     {
       label: 'Tugas aktif',
       value: overview.active_tasks_count,
       empty: 'Tidak ada tugas aktif',
+      Icon: ClipboardList,
+      tone: 'icon-tile',
     },
     {
       label: 'Segera berakhir',
       value: overview.due_soon_tasks_count,
       empty: 'Tidak ada tugas yang segera berakhir',
+      Icon: Clock3,
+      tone: 'icon-tile-warning',
     },
   ];
 
@@ -208,13 +262,25 @@ export function OverviewStats({ overview }: { overview: HomeOverview }) {
   if (visible.length === 0) return null;
 
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {visible.map((m) => (
-        <div key={m.label} className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <dt className="text-small text-text-muted">{m.label}</dt>
-          <dd className="text-h3 font-semibold tabular-nums text-text">
-            {m.value === 0 ? <span className="text-small font-normal text-text-muted">{m.empty}</span> : m.value}
-          </dd>
+        <div
+          key={m.label}
+          className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface p-4"
+        >
+          <span className={`${m.tone} size-10`} aria-hidden="true">
+            <m.Icon className="size-5" />
+          </span>
+          <div className="flex flex-col-reverse gap-0.5">
+            <dt className="text-small text-text-muted">{m.label}</dt>
+            <dd className="text-h2 font-semibold tabular-nums text-text">
+              {m.value === 0 ? (
+                <span className="text-small font-normal text-text-muted">{m.empty}</span>
+              ) : (
+                m.value
+              )}
+            </dd>
+          </div>
         </div>
       ))}
     </dl>
@@ -222,9 +288,12 @@ export function OverviewStats({ overview }: { overview: HomeOverview }) {
 }
 
 /**
- * Bar chart SVG yang dirender di server. Tanpa library chart karena hanya satu
- * grafik batang sederhana (§2). Judul dan angka selalu tersedia sebagai teks,
- * jadi informasinya tidak hanya visual.
+ * Grafik batang SVG yang dirender di server. Tanpa library chart karena hanya
+ * satu grafik batang sederhana (DESIGN.md §14: pakai yang sudah ada, jangan
+ * tambah dependensi untuk satu kebutuhan).
+ *
+ * Judul dan angka selalu tersedia sebagai teks, jadi informasinya tidak hanya
+ * visual (DESIGN.md §10): nilai tiap minggu ditulis di bawah grafik.
  */
 export function ActivityTrend({ rows, timezone }: { rows: ActivityTrendRow[]; timezone: string }) {
   const hasAny = rows.some((r) => r.activity_count > 0);
@@ -238,39 +307,64 @@ export function ActivityTrend({ rows, timezone }: { rows: ActivityTrendRow[]; ti
   }
 
   const max = Math.max(...rows.map((r) => r.activity_count), 1);
-  const height = 96;
-  const barWidth = 28;
-  const gap = 14;
+  const total = rows.reduce((sum, row) => sum + row.activity_count, 0);
+
+  // Geometri tetap di viewBox supaya tandanya tidak berubah saat lebar berubah;
+  // SVG-nya sendiri mengambil lebar kontainer dan menyesuaikan diri.
+  const areaHeight = 132;
+  const barWidth = 34;
+  const gap = 16;
+  const chartWidth = rows.length * (barWidth + gap) - gap;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-end justify-between gap-4">
+        <p className="text-small text-text-muted">
+          <span className="text-h3 font-semibold tabular-nums text-text">{total}</span> kejadian
+          dalam 4 minggu
+        </p>
+        <p className="text-caption tabular-nums text-text-muted">Tertinggi {max} / minggu</p>
+      </div>
+
       <svg
         role="img"
-        aria-label={`Aktivitas 4 minggu terakhir. Total ${rows.reduce((s, r) => s + r.activity_count, 0)} kejadian.`}
-        viewBox={`0 0 ${rows.length * (barWidth + gap)} ${height}`}
-        className="w-full max-w-xs text-secondary"
+        aria-label={`Aktivitas 4 minggu terakhir. Total ${total} kejadian, terbanyak ${max} dalam satu minggu.`}
+        viewBox={`0 0 ${chartWidth} ${areaHeight + 1}`}
+        className="h-36 w-full text-primary"
+        // `meet` menjaga proporsi batang: grafik menyesuaikan diri ke tinggi
+        // yang tersedia alih-alih melar mengikuti lebar kontainer.
+        preserveAspectRatio="xMidYMax meet"
       >
+        {/* Garis dasar: mengikat batang ke satu bidang, bukan menggantung. */}
+        <line
+          x1="0"
+          y1={areaHeight}
+          x2={chartWidth}
+          y2={areaHeight}
+          className="stroke-current opacity-25"
+          strokeWidth="1"
+        />
         {rows.map((row, i) => {
-          const h = Math.round((row.activity_count / max) * (height - 8));
-          const x = i * (barWidth + gap);
+          const height = Math.round((row.activity_count / max) * (areaHeight - 12));
           return (
             <rect
               key={row.week_start}
-              x={x}
-              y={height - h}
+              x={i * (barWidth + gap)}
+              y={areaHeight - height}
               width={barWidth}
-              height={h}
+              height={Math.max(height, 2)}
+              rx="4"
               className="fill-current"
             />
           );
         })}
       </svg>
 
-      {/* Angka tetap terbaca sebagai teks agar bukan hanya relying on visual. */}
+      {/* Angka tetap terbaca sebagai teks agar bukan hanya mengandalkan visual. */}
       <ul className="flex flex-wrap gap-x-6 gap-y-1">
         {rows.map((row) => (
           <li key={row.week_start} className="text-caption text-text-muted">
-            <span className="font-semibold text-text">{row.activity_count}</span>{' '}
+            <span className="font-semibold tabular-nums text-text">{row.activity_count}</span>{' '}
             {formatDay(`${row.week_start}T00:00:00Z`, timezone)}
           </li>
         ))}
@@ -299,27 +393,30 @@ export async function MembersStrip({ members }: { members: RecentMemberSummary[]
 
   return (
     <div className="flex flex-col gap-4">
-      <ul className="flex flex-wrap gap-4">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {members.map((m) => (
-          <li key={m.user_id} className="flex flex-col items-center gap-1">
+          <li key={m.user_id}>
             <Link
               href={`/members/${m.username}`}
-              className="flex flex-col items-center gap-1 rounded-md p-1 transition-func hover:opacity-80"
+              className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex items-center gap-3 p-3`}
             >
               <AvatarFromPath
                 path={m.avatar_path}
                 signedUrl={m.avatar_path ? signedAvatars.get(m.avatar_path) : undefined}
                 name={m.full_name}
-                size="lg"
+                size="md"
               />
-              <span className="max-w-24 truncate text-caption text-text">{m.full_name}</span>
+              <span className="min-w-0 truncate text-small font-semibold text-text">
+                {m.full_name}
+              </span>
             </Link>
           </li>
         ))}
       </ul>
+
       <Link
         href="/members"
-        className="inline-flex min-h-11 items-center gap-1 self-start text-label font-semibold text-primary underline underline-offset-4"
+        className="press inline-flex min-h-11 items-center gap-1 self-start rounded-md px-1 text-label font-semibold text-primary underline underline-offset-4 hover:bg-surface-dim"
       >
         Lihat semua anggota
         <ArrowRight aria-hidden="true" className="size-4" />
@@ -333,6 +430,8 @@ export function HomeSection({
   description,
   action,
   tier,
+  tone,
+  icon,
   children,
 }: {
   title: string;
@@ -340,10 +439,12 @@ export function HomeSection({
   action?: React.ReactNode;
   /** Tingkat prioritas card di beranda; lihat `Card.tsx`. */
   tier: CardTier;
+  tone?: CardTone;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <Section title={title} description={description} action={action} tier={tier}>
+    <Section title={title} description={description} action={action} tier={tier} tone={tone} icon={icon}>
       {children}
     </Section>
   );

@@ -58,7 +58,7 @@ export function Disclosure({
         aria-label={label}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-label font-semibold text-text transition-func hover:bg-surface-dim"
+        className="press inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-label font-semibold text-text hover:bg-surface-dim"
       >
         {trigger}
       </button>
@@ -67,7 +67,9 @@ export function Disclosure({
         <div
           id={panelId}
           role="menu"
-          className={`absolute z-50 mt-1 min-w-56 rounded-md border border-border-subtle bg-surface p-1 ${
+          // Menu mengambang = lapis elevated tertinggi (DESIGN.md §6): bayangan
+          // besar, radius menengah, dan satu gerakan masuk yang singkat.
+          className={`animate-rise absolute z-50 mt-2 min-w-56 rounded-lg border border-border-subtle bg-surface p-1 shadow-high ${
             align === 'end' ? 'end-0' : 'start-0'
           }`}
         >
@@ -89,7 +91,7 @@ export function DisclosureItem({
   href?: string;
 }) {
   const className =
-    'flex w-full min-h-11 items-center gap-2 rounded-sm px-3 py-2 text-left text-body text-text transition-func hover:bg-surface-dim';
+    'flex w-full min-h-11 items-center gap-2 rounded-md px-3 py-2 text-left text-body text-text transition-func hover:bg-surface-dim';
 
   if (href) {
     return (

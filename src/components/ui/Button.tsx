@@ -8,19 +8,38 @@ export type ButtonSize = 'md' | 'lg';
 
 /**
  * Satu komponen dengan varian, bukan komponen terpisah per tampilan
- * (DESIGN.md §5). Styling hanya dari token runtime.
+ * (DESIGN.md §9). Styling hanya dari token runtime.
  *
- * State yang didefinisikan (§11.2): default, hover, pressed, focus-visible,
- * disabled, loading. Di mobile/tablet tinggi minimal 44px (§16).
+ * State yang didefinisikan (DESIGN.md §9): default, hover, pressed,
+ * focus-visible, disabled, loading. Gerakan hover/pressed-nya datang dari kelas
+ * `.press` supaya sama dengan seluruh kontrol lain, bukan dari utility per
+ * tombol.
+ *
+ * Kedua ukuran memenuhi target sentuh minimal 44px (DESIGN.md §10). Ukuran
+ * "kecil" 32–36px yang disebut Appendix C sengaja TIDAK ditambahkan: aplikasi
+ * ini dibuka dari ponsel, dan tombol di bawah 44px akan melanggar lantai
+ * aksesibilitas yang di DESIGN.md §1 berperingkat lebih tinggi daripada
+ * kerapatan.
  *
  * Komponen ini tidak memakai hook sehingga aman dipakai dari Server Component.
  * Untuk tombol submit yang mengikuti status form, pakai `SubmitButton`.
  */
 const VARIANTS: Record<ButtonVariant, string> = {
+  /*
+   * Tombol utama: satu-satunya elemen yang benar-benar "berisi" warna aksen di
+   * halaman. `on-primary` sudah dijamin terbaca di atasnya oleh validator tema.
+   * Kecerahan dinaikkan sedikit saat hover, bukan diganti warna kedua — supaya
+   * palet kelas tetap tidak menuntut kita menebak hue pendampingnya.
+   */
   primary:
-    'bg-primary text-on-primary border border-primary hover:brightness-110 active:brightness-95',
+    'bg-primary text-on-primary border border-primary hover:brightness-105 hover:shadow-medium',
+  /*
+   * Sekunder = tombol bergaris. Teks aksen di atas `surface` adalah pasangan
+   * yang dijamin kontrasnya oleh ThemeSchema, jadi varian ini aman untuk palet
+   * kelas mana pun. Saat hover ia membalik jadi bidang penuh.
+   */
   secondary:
-    'bg-surface text-primary border border-primary hover:bg-primary hover:text-on-primary',
+    'bg-surface text-primary border border-primary hover:bg-primary hover:text-on-primary hover:shadow-medium',
   // `ghost` tetap bergaris dan berpermukaan: tanpa keduanya ia terbaca sebagai
   // teks biasa, bukan sebagai tombol yang bisa ditekan. Yang membedakannya dari
   // `secondary` adalah warna garis, bukan ada-tidaknya garis.
@@ -35,15 +54,14 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 const BASE =
-  'inline-flex items-center justify-center rounded-md font-semibold transition-func ' +
-  'hover:-translate-y-0.5 hover:shadow-medium active:translate-y-0 active:shadow-low ' +
-  'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 ' +
-  'disabled:hover:shadow-none aria-busy:cursor-progress';
+  'press inline-flex items-center justify-center rounded-md font-semibold ' +
+  'disabled:cursor-not-allowed disabled:opacity-55 ' +
+  'disabled:hover:transform-none aria-busy:cursor-progress';
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** Spinner + aria-busy, tetapi label tetap terbaca (§11.2). */
+  /** Spinner + aria-busy, tetapi label tetap terbaca (DESIGN.md §9). */
   loading?: boolean;
   spinnerSize?: SpinnerSize;
 };
@@ -120,7 +138,7 @@ export function IconButton({
       // Ikon bersifat dekoratif; nama aksesibilitas berasal dari `label`.
       aria-label={label}
       title={label}
-      className={`${BASE} ${VARIANTS[variant]} size-11 shrink-0 p-0 ${className}`}
+      className={`${BASE} ${VARIANTS[variant]} size-11 shrink-0 rounded-md p-0 ${className}`}
     >
       {loading ? <Spinner size="sm" /> : children}
     </button>

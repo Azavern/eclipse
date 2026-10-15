@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { UserRound, Users } from 'lucide-react';
 import { getViewer, requireView } from '@/lib/visibility/server';
 import { getMembers } from '@/features/member/queries';
 import { createClient } from '@/lib/supabase/server';
@@ -11,6 +12,7 @@ import {
   CARD_TIER_CLASSES,
 } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
+import { Badge } from '@/components/ui/Badge';
 import { ButtonLink } from '@/components/ui/Button';
 import { formatDateTime } from '@/lib/time';
 import { getClassIdentity } from '@/features/class/queries';
@@ -75,8 +77,13 @@ export default async function MembersPage() {
           action={{ href: '/', label: 'Kembali ke beranda' }}
         />
       ) : (
-        <Section tier="primary" title={`${members.length} anggota`}>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Section
+          tier="primary"
+          title={`${members.length} anggota`}
+          description="Nama, peran, dan waktu bergabung. Buka salah satunya untuk melihat profilnya."
+          icon={<Users className="size-5" />}
+        >
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {members.map((member) => (
               <li key={member.user_id}>
                 <Link
@@ -94,18 +101,23 @@ export default async function MembersPage() {
                     name={member.full_name}
                     size="md"
                   />
-                  <div className="flex min-w-0 flex-col">
+                  <div className="flex min-w-0 flex-col gap-1">
                     <span className="truncate text-body font-semibold text-text">
                       {member.full_name}
                     </span>
-                    <span className="truncate text-small text-text-muted">
-                      @{member.username} · {member.role_name}
+                    <span className="truncate text-small text-text-muted">@{member.username}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      {/* Peran selalu ikut terbaca sebagai teks, bukan hanya
+                          warna badge. */}
+                      <Badge tone="neutral" icon={<UserRound className="size-3.5" />}>
+                        {member.role_name}
+                      </Badge>
+                      {member.joined_at ? (
+                        <span className="truncate text-caption text-text-muted">
+                          Bergabung {formatDateTime(member.joined_at, timezone)}
+                        </span>
+                      ) : null}
                     </span>
-                    {member.joined_at ? (
-                      <span className="truncate text-caption text-text-muted">
-                        Bergabung {formatDateTime(member.joined_at, timezone)}
-                      </span>
-                    ) : null}
                   </div>
                 </Link>
               </li>

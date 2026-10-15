@@ -1,22 +1,24 @@
 import Link from 'next/link';
+import { ChevronRight, Clock3, MapPin, Sparkles, UserRound } from 'lucide-react';
 import { getViewer, requireView } from '@/lib/visibility/server';
 import { getClassIdentity } from '@/features/class/queries';
 import { getEvents } from '@/features/events/queries';
 import { toEventWhen } from '@/features/events/schemas';
 import { formatRange } from '@/lib/time';
 import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { FilterTabs } from '@/components/ui/FilterTabs';
 import { EmptyState, NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Daftar event dengan filter `?when=upcoming|past` (§10).
+ * Daftar event dengan filter `?when=upcoming|past` (blueprint §10).
  *
- * Filter disimpan di URL supaya bisa di-bookmark dan dibagikan (§12). Anonim
- * hanya sampai ke halaman ini bila `page.events` memang terbuka untuknya; RLS
- * tetap menjaga barisnya.
+ * Filter disimpan di URL supaya bisa di-bookmark dan dibagikan (blueprint §12).
+ * Anonim hanya sampai ke halaman ini bila `page.events` memang terbuka untuknya;
+ * RLS tetap menjaga barisnya.
  */
 export default async function EventsPage({
   searchParams,
@@ -42,6 +44,7 @@ export default async function EventsPage({
   const events = await getEvents(when);
   const timezone = identity?.timezone ?? 'Asia/Jakarta';
   const canManage = viewer.can('events.manage');
+  const past = when === 'past';
 
   const tabs = [
     { when: 'upcoming' as const, label: 'Mendatang', href: '/events' },
@@ -49,34 +52,31 @@ export default async function EventsPage({
   ];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Event"
         description="Kegiatan kelas yang akan datang dan yang sudah berlangsung."
         action={canManage ? <ButtonLink href="/events/new">Buat event</ButtonLink> : undefined}
       />
 
-      <nav aria-label="Filter event" className="flex flex-wrap gap-4 border-b border-border-subtle">
-        {tabs.map((tab) => {
-          const active = tab.when === when;
-          return (
-            <Link
-              key={tab.when}
-              href={tab.href}
-              aria-current={active ? 'page' : undefined}
-              className={`-mb-px border-b-2 px-1 pb-2 text-label font-semibold transition-func ${
-                active ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <FilterTabs
+        label="Filter event"
+        items={tabs.map((tab) => ({
+          href: tab.href,
+          label: tab.label,
+          active: tab.when === when,
+        }))}
+      />
 
       {events.length === 0 ? (
-        when === 'upcoming' ? (
+        past ? (
           <EmptyState
+            title="Belum ada event yang sudah lewat"
+            description="Event yang sudah berlangsung akan tampil di sini."
+          />
+        ) : (
+          <EmptyState
+            icon={<Sparkles className="size-6" />}
             title="Belum ada event mendatang"
             description={
               canManage
@@ -85,39 +85,56 @@ export default async function EventsPage({
             }
             action={canManage ? { href: '/events/new', label: 'Buat event' } : undefined}
           />
-        ) : (
-          <EmptyState
-            title="Belum ada event yang sudah lewat"
-            description="Event yang sudah berlangsung akan tampil di sini."
-          />
         )
       ) : (
-        <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.secondary} p-5`}>
-          <div className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3">
           {events.map((event) => (
-            <div
-              key={event.id}
-              className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} flex flex-col gap-1 p-4`}
-            >
-              <h2 className="text-body font-semibold text-text">{event.title}</h2>
-              <p className="text-small text-text-muted">
-                {formatRange(event.start_at, event.end_at, timezone)}
-              </p>
-              {event.location || event.organizer ? (
-                <p className="text-small text-text-muted">
-                  {[event.location, event.organizer].filter(Boolean).join(' · ')}
-                </p>
-              ) : null}
+            /*
+             * Seluruh permukaan baris mengarah ke halaman event, jadi hover-lift
+             * di sini bukan sinyal palsu (DESIGN.md §9).
+             */
+            <li key={event.id}>
               <Link
                 href={`/events/${event.id}`}
-                className="mt-1 text-small text-primary underline"
+                className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex items-center gap-3 p-4`}
               >
-                Lihat event
+                <span
+                  className={`size-10 shrink-0 ${past ? 'icon-tile-neutral' : 'icon-tile'}`}
+                  aria-hidden="true"
+                >
+                  <Sparkles className="size-5" />
+                </span>
+
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <h2 className="truncate text-body font-semibold text-text">{event.title}</h2>
+
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-muted">
+                    <span className="flex items-center gap-1">
+                      <Clock3 aria-hidden="true" className="size-4 shrink-0" />
+                      <span className="tabular-nums">
+                        {formatRange(event.start_at, event.end_at, timezone)}
+                      </span>
+                    </span>
+                    {event.location ? (
+                      <span className="flex items-center gap-1">
+                        <MapPin aria-hidden="true" className="size-4 shrink-0" />
+                        {event.location}
+                      </span>
+                    ) : null}
+                    {event.organizer ? (
+                      <span className="flex items-center gap-1">
+                        <UserRound aria-hidden="true" className="size-4 shrink-0" />
+                        {event.organizer}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" />
               </Link>
-            </div>
+            </li>
           ))}
-          </div>
-        </div>
+        </ul>
       )}
     </div>
   );

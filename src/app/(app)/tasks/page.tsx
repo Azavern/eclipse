@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getViewer, requireView } from '@/lib/visibility/server';
 import { getClassIdentity } from '@/features/class/queries';
 import { getTasks } from '@/features/tasks/queries';
@@ -9,12 +8,22 @@ import { TaskDeleteButton } from '@/features/tasks/components/TaskDeleteButton';
 import { taskDisplayStatus } from '@/lib/time/domain';
 import { formatDateTime } from '@/lib/time';
 import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { FilterTabs } from '@/components/ui/FilterTabs';
 import { EmptyState, NoAccess } from '@/components/ui/States';
 import { ButtonLink } from '@/components/ui/Button';
 
 export const dynamic = 'force-dynamic';
+
+/** Warna tile status; hue-nya hanya penguat, maknanya tetap dibawa Badge. */
+const STATUS_TILE: Record<string, string> = {
+  overdue: 'icon-tile icon-tile-error',
+  due_soon: 'icon-tile icon-tile-warning',
+  completed: 'icon-tile icon-tile-success',
+  archived: 'icon-tile icon-tile-neutral',
+  active: 'icon-tile',
+};
 
 /** Label mata kuliah untuk baris lama yang belum punya nilai (kolom nullable). */
 function courseLabel(course: string | null): string {
@@ -22,7 +31,7 @@ function courseLabel(course: string | null): string {
 }
 
 /**
- * Daftar tugas dengan filter `?status=active|completed|archived` (§10).
+ * Daftar tugas dengan filter `?status=active|completed|archived` (blueprint §10).
  *
  * `active` adalah default dan sengaja memuat tugas yang sudah lewat tenggat —
  * selama belum ditandai selesai, tugas itu masih harus terlihat dan diberi
@@ -65,12 +74,10 @@ export default async function TasksPage({
    * bisa punya banyak tugas sekaligus dan semuanya terdaftar di sini.
    */
   const count =
-    tasks.length === 0
-      ? null
-      : `${tasks.length} ${TASK_STATUS_LABEL[status].toLowerCase()}`;
+    tasks.length === 0 ? null : `${tasks.length} ${TASK_STATUS_LABEL[status].toLowerCase()}`;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Tugas"
         description={
@@ -81,25 +88,14 @@ export default async function TasksPage({
         action={canManage ? <ButtonLink href="/tasks/new">Buat tugas</ButtonLink> : undefined}
       />
 
-      <nav aria-label="Filter tugas" className="flex flex-wrap gap-4 border-b border-border-subtle">
-        {tabs.map((tab) => {
-          const active = tab.status === status;
-          return (
-            <Link
-              key={tab.status}
-              href={tab.href}
-              aria-current={active ? 'page' : undefined}
-              className={`-mb-px border-b-2 px-1 pb-2 text-label font-semibold transition-func ${
-                active
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-text-muted hover:text-text'
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <FilterTabs
+        label="Filter tugas"
+        items={tabs.map((tab) => ({
+          href: tab.href,
+          label: tab.label,
+          active: tab.status === status,
+        }))}
+      />
 
       {tasks.length === 0 ? (
         status === 'active' ? (
@@ -119,66 +115,78 @@ export default async function TasksPage({
           />
         )
       ) : (
-        <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.secondary} p-5`}>
-          <div className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3">
           {tasks.map((task) => {
-            const display = taskDisplayStatus({ status: task.status, deadline: new Date(task.deadline) }, now);
+            const display = taskDisplayStatus(
+              { status: task.status, deadline: new Date(task.deadline) },
+              now,
+            );
             const meta = TASK_DISPLAY_META[display];
             const urgent = display === 'overdue' || display === 'due_soon';
 
             return (
               /*
-                Satu baris = satu unit: judul + status, ringkasan, lalu aksi.
-                Di mobile ketiganya ditumpuk — versi sebelumnya memaksa ketiganya
-                berdampingan sehingga saling menghimpit di layar sempit. Barulah
-                mulai `sm` ketiganya berdampingan lagi dengan aksi di ujung kanan.
+                Satu baris = satu unit: status, judul + label, ringkasan, lalu
+                aksi. Di mobile ketiganya ditumpuk — versi sebelumnya memaksa
+                ketiganya berdampingan sehingga saling menghimpit di layar sempit.
+                Barulah mulai `sm` ketiganya berdampingan lagi dengan aksi di
+                ujung kanan.
               */
-              <article
-                key={task.id}
-                className={`${CARD_TIER_CLASSES.tertiary} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2
-                    className={`text-body text-text ${urgent ? 'font-semibold' : 'font-normal'}`}
-                  >
-                    {task.title}
-                  </h2>
-                  <Badge tone={meta.tone} icon={<meta.Icon className="size-3.5" />}>
-                    {meta.label}
-                  </Badge>
-                </div>
-                <p className="text-small text-text-muted">
-                  {courseLabel(task.course)} · {formatDateTime(task.deadline, timezone)} ·{' '}
-                  {task.target}
-                </p>
-                {/*
-                  Aksi hanya dirender kalau memang bisa dipakai: keduanya butuh
-                  `tasks.manage` (gate yang sama dengan aksinya di server) dan
-                  hanya masuk akal selama tugasnya masih aktif. Untuk tugas aktif,
-                  tombolnya mengikuti tenggat: yang sudah lewat tenggat ditawari
-                  hapus karena barisnya tidak lagi relevan dikerjakan, sedangkan
-                  yang belum ditawari tandai selesai. Tugas yang sudah selesai
-                  atau diarsipkan tidak diberi tombol mati — statusnya sudah
-                  dibawa Badge di atas, dan mengaktifkan lagi tersedia di halaman
-                  detail.
-                */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {canManage && task.status === 'active' ? (
-                    display === 'overdue' ? (
-                      <TaskDeleteButton id={task.id} title={task.title} />
-                    ) : (
-                      <TaskCompleteForm id={task.id} title={task.title} />
-                    )
-                  ) : null}
-                  <ButtonLink href={`/tasks/${task.id}`} variant="secondary">
-                    Detail
-                  </ButtonLink>
-                </div>
-              </article>
+              <li key={task.id}>
+                <article
+                  className={`${CARD_TIER_CLASSES.tertiary} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className={`${STATUS_TILE[display]} size-10`} aria-hidden="true">
+                      <meta.Icon className="size-5" />
+                    </span>
+
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2
+                          className={`text-body text-text ${urgent ? 'font-semibold' : 'font-normal'}`}
+                        >
+                          {task.title}
+                        </h2>
+                        <Badge tone={meta.tone} icon={<meta.Icon className="size-3.5" />}>
+                          {meta.label}
+                        </Badge>
+                      </div>
+                      <p className="text-small text-text-muted">
+                        {courseLabel(task.course)} · {formatDateTime(task.deadline, timezone)} ·{' '}
+                        {task.target}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/*
+                    Aksi hanya dirender kalau memang bisa dipakai: keduanya butuh
+                    `tasks.manage` (gate yang sama dengan aksinya di server) dan
+                    hanya masuk akal selama tugasnya masih aktif. Untuk tugas aktif,
+                    tombolnya mengikuti tenggat: yang sudah lewat tenggat ditawari
+                    hapus karena barisnya tidak lagi relevan dikerjakan, sedangkan
+                    yang belum ditawari tandai selesai. Tugas yang sudah selesai
+                    atau diarsipkan tidak diberi tombol mati — statusnya sudah
+                    dibawa Badge di atas, dan mengaktifkan lagi tersedia di halaman
+                    detail.
+                  */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canManage && task.status === 'active' ? (
+                      display === 'overdue' ? (
+                        <TaskDeleteButton id={task.id} title={task.title} />
+                      ) : (
+                        <TaskCompleteForm id={task.id} title={task.title} />
+                      )
+                    ) : null}
+                    <ButtonLink href={`/tasks/${task.id}`} variant="secondary">
+                      Detail
+                    </ButtonLink>
+                  </div>
+                </article>
+              </li>
             );
           })}
-          </div>
-        </div>
+        </ul>
       )}
     </div>
   );

@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/visibility/server';
 import { getScheduleById, getScheduleSemesters } from '@/features/schedule/queries';
 import { EditScheduleForm } from '@/features/schedule/components/ScheduleForm';
+import { Pencil } from 'lucide-react';
 import { recentSemesters, sortSemestersDesc } from '@/lib/semester';
-import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { Breadcrumb, PageHeader } from '@/components/ui/Section';
+import { Card } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -46,11 +47,17 @@ export default async function EditSchedulePage({
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
+        breadcrumb={
+          <Breadcrumb
+            items={[{ href: '/schedule', label: 'Jadwal' }, { label: schedule.title }, { label: 'Ubah' }]}
+          />
+        }
         title="Ubah jadwal"
         description="Perubahan berlaku untuk setiap minggu di semester ini."
+        icon={<Pencil className="size-5" />}
       />
 
-      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
+      <Card tier="secondary" className="max-w-form p-5">
         <EditScheduleForm
           id={schedule.id}
           title={schedule.title}
@@ -67,7 +74,7 @@ export default async function EditSchedulePage({
             url: schedule.url ?? '',
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

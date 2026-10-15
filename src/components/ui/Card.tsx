@@ -4,23 +4,22 @@ import type { ReactNode } from 'react';
  * Tiga tingkat prioritas informasi. Dipakai di seluruh halaman supaya susunan
  * card benar-benar menyatakan prioritas, bukan sekadar membagi ruang.
  *
- * Kontras antar tingkat dibangun dari tiga hal saja — tebal garis, kekuatan
- * bayangan, dan glow — bukan dari warna latar yang berbeda. Latar tetap
- * `surface` untuk semuanya supaya tidak ada card yang terbaca sebagai pesan
- * error atau peringatan.
- */
-export type CardTier = 'primary' | 'secondary' | 'tertiary';
-
-/**
+ * Kontras antar tingkat dibangun dari tebal garis, kekuatan bayangan, dan satu
+ * glow — bukan dari warna latar yang berbeda. Latar tetap `surface` untuk
+ * semuanya supaya tidak ada card yang terbaca sebagai pesan error atau
+ * peringatan. Warna latar disediakan terpisah lewat `CardTone` untuk panel yang
+ * memang perlu dibedakan sebagai kelompok, bukan sebagai prioritas.
+ *
  * Primer  — informasi yang harus terbaca pertama di halamannya. Garis tertebal,
  *           glow warna primary.
  * Sekunder— kelompok informasi utama. Garis tegas, bayangan rendah.
- * Tersier — pendukung. Garis tipis, tanpa bayangan.
+ * Tersier — pendukung. Garis tipis, tanpa bayangan (tingkat „flat“ di
+ *           DESIGN.md §6).
  *
  * Kelas tingkat sengaja TIDAK memuat satu pun `hover:`. Efek hover (bayangan,
- * lift, up-size) hanya boleh muncul pada card yang benar-benar bisa diklik, dan
- * itu ditandai terpisah oleh `.card-interactive`. Kalau `hover:shadow-*` ditulis
- * di sini, card teks yang tidak bisa diklik ikut bereaksi — persis sinyal palsu
+ * lift) hanya boleh muncul pada card yang benar-benar bisa diklik, dan itu
+ * ditandai terpisah oleh `.card-interactive`. Kalau `hover:shadow-*` ditulis di
+ * sini, card teks yang tidak bisa diklik ikut bereaksi — persis sinyal palsu
  * yang harus dihindari.
  *
  * `card-cell` menandai "elemen ini sebuah card", dan itu dipakai `.card-grid`
@@ -29,12 +28,36 @@ export type CardTier = 'primary' | 'secondary' | 'tertiary';
  * diklik adalah soal *interaksi*, dan banyak card benar untuk yang pertama tapi
  * tidak untuk yang kedua.
  */
-export const CARD_TIER_CLASSES: Record<CardTier, string> = {
+export const CARD_TIER_CLASSES = {
   primary: 'card-cell card-tier-primary rounded-lg border-2 border-primary bg-surface shadow-glow',
   secondary:
     'card-cell card-tier-secondary rounded-lg border border-border-strong bg-surface shadow-low',
   tertiary: 'card-cell card-tier-tertiary rounded-md border border-border-subtle bg-surface',
-};
+} as const;
+
+export type CardTier = keyof typeof CARD_TIER_CLASSES;
+
+/**
+ * Warna latar card, terpisah dari tingkat prioritasnya (DESIGN.md §6: „layer
+ * surfaces — canvas → card → raised“, dan „tinted section bands“).
+ *
+ * `plain`  — permukaan biasa. Dipakai hampir selalu.
+ * `band`   — pita ber-tint aksen yang sangat muda. Untuk kelompok yang memang
+ *            berbeda kelasnya (mis. blok pengantar halaman, panel ringkasan).
+ * `accent` — permukaan aksen paling kuat, untuk satu elemen per layar yang
+ *            memang paling penting (hero, kartu statistik unggulan).
+ *
+ * Semua varian tetap memakai warna teks yang sama; yang berubah hanya latar dan
+ * garisnya, jadi tidak ada teks yang berpindah ke atas permukaan yang belum
+ * diuji kontrasnya.
+ */
+export const CARD_TONE_CLASSES = {
+  plain: '',
+  band: 'bg-band',
+  accent: 'bg-primary-soft border-primary-edge',
+} as const;
+
+export type CardTone = keyof typeof CARD_TONE_CLASSES;
 
 export const CARD_BASE = '';
 
@@ -56,11 +79,13 @@ export const CARD_INTERACTIVE = 'card-interactive';
  */
 export function Card({
   tier = 'secondary',
+  tone = 'plain',
   interactive = false,
   className = '',
   children,
 }: {
   tier?: CardTier;
+  tone?: CardTone;
   /** Menaikkan kartu saat disentuh. Hanya untuk kartu yang bisa diklik. */
   interactive?: boolean;
   className?: string;
@@ -68,7 +93,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`${interactive ? CARD_INTERACTIVE : ''} ${CARD_TIER_CLASSES[tier]} ${className}`}
+      className={`${interactive ? CARD_INTERACTIVE : ''} ${CARD_TIER_CLASSES[tier]} ${CARD_TONE_CLASSES[tone]} ${className}`}
     >
       {children}
     </div>
@@ -78,11 +103,11 @@ export function Card({
 /**
  * Deretan dua kolom untuk card.
  *
- * Satu kolom di mobile, dua kolom seragam dari 1024px, dan card terakhir pada
- * jumlah ganjil melebar sendiri mengisi barisnya (`flex-grow` di `.card-grid`,
- * `globals.css`) sehingga tidak ada sel kosong yang tertinggal. Anak yang bukan
- * card tetap melebar penuh, jadi judul halaman dan bilah filter tidak ikut
- * terbagi dua kolom.
+ * Satu kolom di mobile, dua kolom dari 1024px, tiga kolom dari 1440px, dan card
+ * terakhir pada jumlah ganjil melebar sendiri mengisi barisnya (`flex-grow` di
+ * `.card-grid`, `globals.css`) sehingga tidak ada sel kosong yang tertinggal.
+ * Anak yang bukan card tetap melebar penuh, jadi judul halaman dan bilah filter
+ * tidak ikut terbagi dua kolom.
  *
  * Dipakai hanya kalau section-nya memang lebih dari satu; satu card sendirian
  * tidak perlu dibungkus.

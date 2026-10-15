@@ -45,9 +45,12 @@ export function Avatar({
   return (
     <span
       // Fallback inisial tetap diumumkan sebagai teks yang dapat dibaca.
+      // Latarnya ber-tint aksen dan teksnya memakai token teks: inisial adalah
+      // teks, jadi ia harus tetap ≥4.5:1 untuk palet kelas mana pun, sedangkan
+      // tint-nya cukup memberi kesan "ini orang dari kelas ini" (DESIGN.md §6).
       role="img"
       aria-label={name}
-      className={`${className} inline-flex items-center justify-center rounded-full border border-border-subtle bg-surface-dim font-semibold text-text-muted`}
+      className={`${className} inline-flex items-center justify-center rounded-full border border-primary-edge bg-primary-soft font-semibold text-text`}
     >
       {initials(name)}
     </span>

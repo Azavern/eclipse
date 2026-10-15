@@ -1,10 +1,11 @@
 import { requirePermission } from '@/lib/visibility/server';
 import { getClassTheme } from '@/features/class/queries';
+import { Palette } from 'lucide-react';
 import { ThemeEditor } from '@/features/theme/components/ThemeEditor';
 import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
-import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
+import { SettingsNav } from '@/components/settings/SettingsNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,16 +27,20 @@ export default async function SettingsThemePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsBackLink />
+      <SettingsNav active="/settings/theme" />
 
       <PageHeader
         title="Tema kelas"
         description="Warna dan tata letak yang dipakai seluruh aplikasi. Semua kombinasi teks diperiksa terhadap rasio kontras minimal 4,5:1."
+        icon={<Palette className="size-5" />}
       />
 
-      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-content p-5`}>
+      <Card tier="primary" className="max-w-content p-5">
+        {/* Judul di dalam dipakai pembaca layar; teksnya sudah ada di header
+            halaman, jadi tidak diulang secara visual. */}
+        <h2 className="sr-only">Editor tema</h2>
         <ThemeEditor defaults={theme} />
-      </div>
+      </Card>
     </div>
   );
 }

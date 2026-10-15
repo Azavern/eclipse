@@ -1,15 +1,13 @@
 /**
  * Skeleton mengikuti bentuk konten sebenarnya, bukan spinner layar penuh
- * (§15.1), sehingga transisi ke konten tidak terasa seperti lompatan layout.
- * Tidak ada animasi: skeleton -> konten adalah 0 ms (§11.4).
+ * (blueprint §15.1), sehingga transisi ke konten tidak terasa seperti lompatan
+ * layout.
+ *
+ * Kilaunya datang dari kelas `.skeleton` (DESIGN.md §6: "skeleton shimmer") dan
+ * berhenti sendiri saat pengguna meminta reduced motion (DESIGN.md §10).
  */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={`rounded-sm bg-surface-dim ${className}`}
-    />
-  );
+  return <div aria-hidden="true" className={`skeleton rounded-sm ${className}`} />;
 }
 
 export function SkeletonText({ lines = 3 }: { lines?: number }) {
@@ -80,16 +78,20 @@ export function SkeletonSectionShell({ children }: { children: React.ReactNode }
 }
 
 /**
- * Strip metrik: empat kolom di desktop, dua di mobile — mengikuti grid
- * `OverviewStats` supaya lebar kolom tidak bergeser.
+ * Tile metrik: dua kolom di mobile, empat dari 1024px — mengikuti grid
+ * `OverviewStats` supaya lebar kolom tidak bergeser saat data tiba.
  */
 export function SkeletonStats({ items = 4 }: { items?: number }) {
   return (
-    <div aria-hidden="true" className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+    <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {Array.from({ length: items }, (_, i) => (
-        <div key={i} className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+        <div
+          key={i}
+          className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface p-4"
+        >
+          <Skeleton className="size-10 rounded-md" />
+          <Skeleton className="h-6 w-16" />
           <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-6 w-12" />
         </div>
       ))}
     </div>
@@ -97,12 +99,13 @@ export function SkeletonStats({ items = 4 }: { items?: number }) {
 }
 
 /**
- * Grafik batang + daftar angka minggu, mengikuti `ActivityTrend` (tinggi SVG 96).
+ * Grafik batang + daftar angka minggu, mengikuti `ActivityTrend` (tinggi area
+ * grafik 128).
  */
 export function SkeletonActivity() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-3">
-      <Skeleton className="h-24 w-full max-w-xs" />
+      <Skeleton className="h-32 w-full" />
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-4 w-24" />

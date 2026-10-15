@@ -1,9 +1,10 @@
 import { requirePermission } from '@/lib/visibility/server';
 import { getScheduleSemesters } from '@/features/schedule/queries';
 import { CreateScheduleForm } from '@/features/schedule/components/ScheduleForm';
+import { CalendarPlus } from 'lucide-react';
 import { recentSemesters, semesterFor, sortSemestersDesc } from '@/lib/semester';
 import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -34,11 +35,12 @@ export default async function NewSchedulePage() {
       <PageHeader
         title="Tambah jadwal"
         description="Bisa beberapa mata kuliah sekaligus: tekan “Tambah jadwal” untuk menambah baris. Jadwal berlaku setiap minggu sepanjang semester, jadi tidak perlu diisi ulang tiap minggu."
+        icon={<CalendarPlus className="size-5" />}
       />
 
-      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
+      <Card tier="secondary" className="max-w-form p-5">
         <CreateScheduleForm semesters={semesters} defaultSemester={semesterFor(new Date())} />
-      </div>
+      </Card>
     </div>
   );
 }

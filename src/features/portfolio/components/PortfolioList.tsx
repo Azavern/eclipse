@@ -1,3 +1,4 @@
+import { ExternalLink, ImageIcon, Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { signMany } from '@/lib/storage/sign';
 import { SignedImage } from '@/components/storage/SignedImage';
@@ -57,22 +58,38 @@ export async function PortfolioList({ items }: { items: PortfolioRow[] }) {
               />
             ) : null}
 
-            <div className="flex min-w-0 flex-col gap-1">
-              <p className="text-body font-semibold text-text">{item.title}</p>
-              <p className="text-caption text-text-muted">
-                {kindLabel(item.kind)} · {formatDateOnly(item.occurred_on)}
-              </p>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              {/*
+                Tile ikon menandai jenis karyanya, dan thumbnail di sebelahnya
+                (bila ada) jadi jangkar visual — item portofolio tanpa gambar pun
+                tetap punya satu elemen non-teks (DESIGN.md §5).
+              */}
+              <div className="flex items-start gap-3">
+                <span className="icon-tile size-10" aria-hidden="true">
+                  {mediaUrl ? <ImageIcon className="size-5" /> : <Trophy className="size-5" />}
+                </span>
+
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <p className="text-body font-semibold text-text">{item.title}</p>
+                  <p className="tabular-nums text-caption text-text-muted">
+                    {kindLabel(item.kind)} · {formatDateOnly(item.occurred_on)}
+                  </p>
+                </div>
+              </div>
+
               {item.description ? (
                 <p className="text-small text-text">{item.description}</p>
               ) : null}
+
               {item.url ? (
                 <a
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-small text-primary underline"
+                  className="press inline-flex w-fit items-center gap-1.5 rounded-md border border-primary bg-surface px-3 py-1.5 text-label font-semibold text-primary hover:bg-primary hover:text-on-primary"
                 >
                   Buka tautan
+                  <ExternalLink aria-hidden="true" className="size-3.5" />
                 </a>
               ) : null}
             </div>

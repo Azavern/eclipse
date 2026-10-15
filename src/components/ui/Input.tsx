@@ -1,13 +1,19 @@
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 /**
- * Kontrol formulir native. State yang didefinisikan (§11.2): default, focus,
- * filled, error, disabled, success. Fokus ditangani satu kali oleh `:focus-visible`
+ * Kontrol formulir native. State yang didefinisikan (DESIGN.md §9): default,
+ * focus, filled, error, disabled. Fokus ditangani satu kali oleh `:focus-visible`
  * global, sehingga kelas fokus tidak ditulis ulang per kontrol.
+ *
+ * Tinggi minimum memakai 44px (`min-h-11`), sama dengan tombol: satu baris
+ * kontrol yang lebih pendek dari tombol di sebelahnya membuat form terlihat
+ * tidak sejajar, dan target sentuh di bawah 44px melanggar lantai aksesibilitas
+ * (DESIGN.md §10).
  */
 const CONTROL =
-  'w-full rounded-md border bg-surface px-3 py-2 text-body text-text ' +
-  'placeholder:text-text-muted/70 transition-func ' +
+  'w-full min-h-11 rounded-md border bg-surface px-3 py-2 text-body text-text ' +
+  'placeholder:text-text-muted transition-func ' +
+  'hover:border-text-muted ' +
   'disabled:cursor-not-allowed disabled:bg-surface-dim disabled:text-text-muted';
 
 const INVALID = 'border-error';
@@ -50,8 +56,9 @@ export function Textarea({
 
 /**
  * Select native, bukan custom listbox: keyboard, screen reader, dan perilaku
- * mobile sudah benar tanpa menulis ulang (DESIGN.md §10: gunakan yang paling
- * sederhana yang memenuhi kebutuhan).
+ * mobile sudah benar tanpa menulis ulang (DESIGN.md §9: pakai komponen yang
+ * sudah ada selama ia memenuhi kebutuhan; DESIGN.md §10: kontrol yang bisa
+ * dioperasikan keyboard tanpa tambahan).
  */
 export function Select({
   invalid = false,

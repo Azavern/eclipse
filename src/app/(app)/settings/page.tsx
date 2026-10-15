@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ChevronRight, CircleAlert } from 'lucide-react';
 import { getViewer } from '@/lib/visibility/server';
-import type { Permission } from '@/lib/visibility/types';
 import { PageHeader, Section } from '@/components/ui/Section';
 import { CARD_BASE, CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/States';
+import { SettingsNav } from '@/components/settings/SettingsNav';
+import { SETTINGS_GROUPS } from '@/components/settings/entries';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,83 +27,7 @@ export const dynamic = 'force-dynamic';
  *    mana pun (§10.1).
  */
 
-type SettingsEntry = {
-  href: string;
-  title: string;
-  /** Fungsi konkret halaman ini, supaya pengguna tahu apa yang terjadi di sana. */
-  purpose: string;
-  /** Izin yang dibutuhkan; `null` berarti cukup punya sesi. */
-  permission: Permission | null;
-};
 
-type SettingsGroup = {
-  title: string;
-  description: string;
-  entries: SettingsEntry[];
-};
-
-const GROUPS: SettingsGroup[] = [
-  {
-    title: 'Umum',
-    description: 'Berlaku untuk akunmu sendiri, bukan untuk kelas.',
-    entries: [
-      {
-        href: '/settings/profile',
-        title: 'Profil saya',
-        purpose:
-          'Nama, username, nama panggilan, bio, foto profil, tautan sosial, portofolio, dan aturan visibilitas data pribadimu.',
-        permission: null,
-      },
-      {
-        href: '/settings/account',
-        title: 'Akun & kata sandi',
-        purpose:
-          'Ganti kata sandi dan perbarui keamanan akun. Halaman ini tetap bisa dipakai walau keanggotaanmu sedang tidak aktif.',
-        permission: null,
-      },
-    ],
-  },
-  {
-    title: 'Kelas',
-    description: 'Tampilan dan isi kelas. Hanya untuk pengelola kelas.',
-    entries: [
-      {
-        href: '/class',
-        title: 'Identitas kelas',
-        purpose:
-          'Nama, kode, tagline, deskripsi, sorotan, zona waktu, logo, cover, dan tautan kontak kelas. Halamannya ada di luar Pengaturan karena isinya adalah tampilan kelas itu sendiri.',
-        permission: 'class.manage',
-      },
-      {
-        href: '/settings/theme',
-        title: 'Tema kelas',
-        purpose:
-          'Warna, tipografi, dan tata letak yang dipakai seluruh aplikasi, lengkap dengan laporan kontras tiap pasangan teks.',
-        permission: 'class.manage',
-      },
-    ],
-  },
-  {
-    title: 'Pengelolaan kelas',
-    description: 'Khusus pengelola kelas (Ketua).',
-    entries: [
-      {
-        href: '/settings/visibility',
-        title: 'Aturan visibilitas',
-        purpose:
-          'Tentukan siapa boleh membuka tiap halaman dan melihat tiap bagian, lengkap dengan pratinjau apa yang dilihat pengunjung tanpa login. Aturan kelas selalu menjadi batas terluar di atas aturan pribadi anggota.',
-        permission: 'class.manage',
-      },
-      {
-        href: '/settings/members',
-        title: 'Anggota',
-        purpose:
-          'Undang anggota, terbitkan tautan akses sekali pakai, aktifkan atau nonaktifkan, dan hapus beserta seluruh isinya.',
-        permission: 'members.manage',
-      },
-    ],
-  },
-];
 
 /**
  * `/settings` — indeks pengaturan.
@@ -115,7 +41,7 @@ export default async function SettingsIndexPage() {
 
   // Grup yang seluruh entrinya tidak boleh dibuka tidak muncul sama sekali,
   // supaya daftar ini tidak pernah menjanjikan halaman yang akan menolak.
-  const groups = GROUPS.map((group) => ({
+  const groups = SETTINGS_GROUPS.map((group) => ({
     ...group,
     entries: group.entries.filter(
       (entry) => entry.permission === null || viewer.can(entry.permission),
@@ -129,8 +55,14 @@ export default async function SettingsIndexPage() {
         description="Semua halaman pengaturan dikelompokkan menurut siapa yang boleh mengubahnya."
       />
 
+      <SettingsNav active="/settings" />
+
       {viewer.isActiveMember ? null : (
-        <p className="rounded-md border border-warning px-3 py-2 text-small text-warning">
+        <p
+          role="status"
+          className="flex items-start gap-3 rounded-md border border-warning-edge bg-warning-soft px-4 py-3 text-small text-text"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning" />
           Keanggotaanmu sedang tidak aktif. Kamu tetap bisa mengganti kata sandi di bagian Akun,
           tapi halaman profil tidak bisa dibuka. Hubungi Ketua untuk mengaktifkan kembali
           keanggotaanmu.
@@ -162,10 +94,16 @@ export default async function SettingsIndexPage() {
                   <Link
                     key={entry.href}
                     href={entry.href}
-                    className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex flex-col gap-1 p-4`}
+                    className={`${CARD_BASE} ${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex items-start justify-between gap-3 p-4`}
                   >
-                    <span className="text-body font-semibold text-text">{entry.title}</span>
-                    <span className="text-small text-text-muted">{entry.purpose}</span>
+                    <span className="flex flex-col gap-1">
+                      <span className="text-body font-semibold text-text">{entry.title}</span>
+                      <span className="text-small text-text-muted">{entry.purpose}</span>
+                    </span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="mt-0.5 size-5 shrink-0 text-text-muted"
+                    />
                   </Link>
                 ))}
               </div>

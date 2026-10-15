@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { Check, CircleAlert, X } from 'lucide-react';
 import { updateTheme } from '@/features/theme/actions';
 import {
   contrastPairs,
@@ -119,16 +120,27 @@ export function ThemeEditor({ defaults }: { defaults: ThemeDefaults }) {
           ) : pairs.length === 0 ? (
             <p className="text-small text-text-muted">Belum ada pasangan yang bisa diukur.</p>
           ) : (
+            /*
+             * Daftar kontras: hasilnya dibawa oleh ikon + kalimat, bukan oleh
+             * tanda centang berwarna saja. Teksnya tetap memakai token teks
+             * supaya tetap terbaca saat Ketua sedang menguji palet gelap.
+             */
             <ul className="flex flex-col gap-1">
               {pairs.map((p) => (
-                <li key={`${p.fg}-${p.bg}`} className="text-small">
-                  <span className={p.passes ? 'text-success' : 'text-error'}>
-                    {p.passes ? '✓' : '✕'}
-                  </span>{' '}
+                <li
+                  key={`${p.fg}-${p.bg}`}
+                  className="flex items-start gap-2 rounded-sm bg-band px-2 py-1 text-small"
+                >
+                  {p.passes ? (
+                    <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
+                  ) : (
+                    <X aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-error" />
+                  )}
                   <span className="text-text">
-                    {PALETTE_LABELS[p.fg]} di atas {PALETTE_LABELS[p.bg].toLowerCase()} —{' '}
-                    {PALETTE_LABELS[p.fg]} di atas {PALETTE_LABELS[p.bg].toLowerCase()} —{' '}
-                    {p.ratio.toFixed(2)}:1 ({ratioLabel(p.passes)})
+                    {PALETTE_LABELS[p.fg]} di atas {PALETTE_LABELS[p.bg].toLowerCase()}{' '}
+                    <span className="tabular-nums text-text-muted">
+                      {p.ratio.toFixed(2)}:1 ({ratioLabel(p.passes)})
+                    </span>
                   </span>
                 </li>
               ))}
@@ -183,7 +195,11 @@ export function ThemeEditor({ defaults }: { defaults: ThemeDefaults }) {
       <div className="flex flex-col gap-3">
         <SubmitButton pendingLabel="Menyimpan…">Simpan tema</SubmitButton>
         {valid && broken ? (
-          <p className="text-small text-error">
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-md border border-error-edge bg-error-soft px-3 py-2 text-small text-text"
+          >
+            <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-error" />
             Ada pasangan warna yang belum terbaca. Perbaiki dulu supaya semua pengguna dapat membaca
             isi halaman.
           </p>

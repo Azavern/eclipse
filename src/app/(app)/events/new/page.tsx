@@ -1,7 +1,8 @@
+import { Sparkles } from 'lucide-react';
 import { requirePermission } from '@/lib/visibility/server';
 import { CreateEventForm } from '@/features/events/components/EventForm';
 import { PageHeader } from '@/components/ui/Section';
-import { CARD_BASE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { NoAccess } from '@/components/ui/States';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +25,12 @@ export default async function NewEventPage() {
       <PageHeader
         title="Buat event"
         description="Waktu diisi dalam zona waktu kelas; sistem menyimpannya dalam UTC."
+        icon={<Sparkles className="size-5" />}
       />
 
-      <div className={`${CARD_BASE} ${CARD_TIER_CLASSES.primary} max-w-form p-5`}>
+      <Card tier="secondary" className="max-w-form p-5">
         <CreateEventForm />
-      </div>
+      </Card>
     </div>
   );
 }

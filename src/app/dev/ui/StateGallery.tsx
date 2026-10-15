@@ -11,11 +11,23 @@ import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState, ErrorState, NoAccess } from '@/components/ui/States';
 import { SkeletonList, SkeletonText } from '@/components/ui/Skeleton';
 import { IconSubmitButton } from '@/components/ui/SubmitButton';
-import { PageHeader, Section } from '@/components/ui/Section';
+import { Breadcrumb, PageHeader, Section } from '@/components/ui/Section';
 import { CARD_INTERACTIVE, CARD_TIER_CLASSES } from '@/components/ui/Card';
+import { FilterTabs } from '@/components/ui/FilterTabs';
 import { Dialog } from '@/components/ui/Dialog';
 import { Disclosure, DisclosureItem } from '@/components/ui/Disclosure';
-import { Check, Clock, Trash2, X } from 'lucide-react';
+import {
+  BarChart3,
+  Check,
+  Clock,
+  ExternalLink,
+  Inbox,
+  Palette,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -36,8 +48,9 @@ export function StateGallery() {
   return (
     <div className="card-grid mx-auto w-full max-w-content px-4 py-8 lg:px-6">
       <PageHeader
+        icon={<Palette className="size-5" />}
         title="Galeri state"
-        description="Setiap primitive pada setiap state. Halaman ini hanya ada di luar produksi."
+        description="Setiap primitive pada setiap state, plus permukaan ber-tint dan elemen bertile. Halaman ini hanya ada di luar produksi."
       />
 
       <Section tier="primary" title="Button">
@@ -228,9 +241,115 @@ export function StateGallery() {
         </div>
       </Section>
 
-      <Section tier="tertiary" title="Skeleton (bentuk konten sebenarnya, tanpa animasi)">
+      <Section
+        tier="tertiary"
+        title="Skeleton (bentuk konten sebenarnya, kilau pelan)"
+        description="Kilau berhenti sendiri saat pengguna meminta reduced motion."
+      >
         <SkeletonText lines={2} />
         <SkeletonList rows={2} />
+      </Section>
+
+      <Section
+        tier="primary"
+        title="Permukaan ber-tint dan tile ikon"
+        description="Warna status dibawa latar, garis, dan ikon; teksnya tetap memakai token teks supaya kontrasnya tidak bergantung pada palet kelas."
+      >
+        <Row label="tile ikon">
+          <span className="icon-tile size-12" aria-hidden="true">
+            <Sparkles className="size-6" />
+          </span>
+          <span className="icon-tile icon-tile-info size-12" aria-hidden="true">
+            <Users className="size-6" />
+          </span>
+          <span className="icon-tile icon-tile-success size-12" aria-hidden="true">
+            <Check className="size-6" />
+          </span>
+          <span className="icon-tile icon-tile-warning size-12" aria-hidden="true">
+            <Clock className="size-6" />
+          </span>
+          <span className="icon-tile icon-tile-error size-12" aria-hidden="true">
+            <X className="size-6" />
+          </span>
+          <span className="icon-tile icon-tile-neutral size-12" aria-hidden="true">
+            <Inbox className="size-6" />
+          </span>
+        </Row>
+
+        <Row label="panel berstatus (bukan hanya warna: ada ikon dan kalimatnya)">
+          <p className="flex items-start gap-3 rounded-md border border-success-edge bg-success-soft px-4 py-3 text-small text-text">
+            <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-success" />
+            Tautan terbit. Salin sekarang.
+          </p>
+          <p className="flex items-start gap-3 rounded-md border border-warning-edge bg-warning-soft px-4 py-3 text-small text-text">
+            <Clock aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning" />
+            Keanggotaanmu sedang tidak aktif.
+          </p>
+        </Row>
+
+        <Row label="pita dan panel aksen">
+          <div className="rounded-md border border-border-subtle bg-band p-4 text-small text-text">
+            Pita ber-tint (bg-band) untuk memisahkan kelompok.
+          </div>
+          <div className="rounded-md border border-primary-edge bg-primary-soft p-4 text-small text-text">
+            Panel aksen (bg-primary-soft) untuk satu blok yang paling penting.
+          </div>
+        </Row>
+
+        <Row label="tile KPI (ikon, angka bertabular, label)">
+          <div className="flex w-48 flex-col gap-3 rounded-md border border-border-subtle bg-surface p-4">
+            <span className="icon-tile size-10" aria-hidden="true">
+              <BarChart3 className="size-5" />
+            </span>
+            <div className="flex flex-col-reverse gap-0.5">
+              <span className="text-small text-text-muted">Tugas aktif</span>
+              <span className="text-h2 font-semibold tabular-nums text-text">12</span>
+            </div>
+          </div>
+        </Row>
+      </Section>
+
+      <Section
+        tier="secondary"
+        title="Navigasi dan penyaring"
+        description="Penyaring berbentuk chip: satu state eksplisit per nilai, nilainya hidup di URL."
+      >
+        <FilterTabs
+          label="Filter contoh"
+          items={[
+            { href: '/dev/ui', label: 'Aktif', active: true },
+            { href: '/dev/ui', label: 'Selesai', active: false },
+            { href: '/dev/ui', label: 'Arsip', active: false },
+          ]}
+        />
+
+        <Breadcrumb
+          items={[
+            { href: '/dev/ui', label: 'Beranda' },
+            { href: '/dev/ui', label: 'Tugas' },
+            { label: 'Detail' },
+          ]}
+        />
+      </Section>
+
+      <Section
+        tier="tertiary"
+        title="Satu kartu yang bisa diklik sebagai baris daftar"
+        description="Baris daftar membawa arah: seluruh permukaannya menuju satu halaman."
+      >
+        <Link
+          href="/dev/ui"
+          className={`${CARD_TIER_CLASSES.tertiary} ${CARD_INTERACTIVE} flex items-center gap-3 p-4`}
+        >
+          <span className="icon-tile size-10" aria-hidden="true">
+            <Sparkles className="size-5" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-body font-semibold text-text">Event kelas</span>
+            <span className="truncate text-small text-text-muted">12 Okt 2026 · Aula</span>
+          </span>
+          <ExternalLink aria-hidden="true" className="size-5 shrink-0 text-text-muted" />
+        </Link>
       </Section>
 
       <Section
@@ -267,15 +386,23 @@ export function StateGallery() {
         </div>
       </Section>
 
-      <Section tier="tertiary" title="Transition (spesifikasi tertulis, bukan frame)">
+      <Section
+        tier="tertiary"
+        title="Transisi (spesifikasi tertulis, bukan frame)"
+        description="Durasi dan easing berasal dari token motion, bukan angka yang ditulis per komponen."
+      >
         <ul className="flex flex-col gap-2 text-small text-text-muted">
-          <li>Dialog tutup → buka: opacity + translateY(8px→0), 150 ms, ease-out</li>
-          <li>Dialog buka → tutup: opacity, 100 ms, ease-in</li>
-          <li>Disclosure tutup → buka: opacity, 120 ms, ease-out</li>
-          <li>Button → loading: instan (0 ms), hanya isi tombol yang berubah</li>
-          <li>Skeleton → konten: 0 ms, tanpa animasi</li>
+          <li>Tombol default → hover: transform + bayangan, 120 ms, ease-out</li>
+          <li>Tombol default → pressed: scale 0.98, 80 ms, ease-out</li>
+          <li>Dialog tutup → buka: opacity + translateY(8px→0), 320 ms, ease-out</li>
+          <li>Disclosure tutup → buka: opacity + translateY, 320 ms, ease-out</li>
+          <li>Toast muncul: opacity + translateY, 320 ms, ease-out</li>
+          <li>Tombol → loading: instan (0 ms), hanya isi tombol yang berubah</li>
+          <li>Kartu yang bisa diklik → hover: lift + bayangan, 200 ms, ease-out</li>
+          <li>Skeleton: kilau berjalan 1,6 s dan berulang selama memuat</li>
           <li>
-            <code className="font-mono">prefers-reduced-motion: reduce</code> → semua durasi 0 ms
+            <code className="font-mono">prefers-reduced-motion: reduce</code> → semua durasi 0 ms,
+            kilau skeleton berhenti
           </li>
         </ul>
       </Section>

@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { CircleCheck, IdCard, ImagePlus } from 'lucide-react';
 import { getViewer } from '@/lib/visibility/server';
 import { getMyProfile } from '@/features/member/queries';
 import { SocialLinksSection } from '@/features/social/components/SocialLinksSection';
@@ -16,7 +17,7 @@ import {
   SkeletonSectionShell,
 } from '@/components/ui/Skeleton';
 import { SectionBoundary } from '@/components/ui/SectionBoundary';
-import { SettingsBackLink } from '@/components/settings/SettingsBackLink';
+import { SettingsNav } from '@/components/settings/SettingsNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,7 +72,7 @@ export default async function SettingsProfilePage({
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsBackLink />
+      <SettingsNav active="/settings/profile" />
 
       <PageHeader
         title="Profil saya"
@@ -79,7 +80,11 @@ export default async function SettingsProfilePage({
       />
 
       {justActivated ? (
-        <p className="rounded-md border border-success px-3 py-2 text-small text-success">
+        <p
+          role="status"
+          className="flex items-start gap-3 rounded-md border border-success-edge bg-success-soft px-4 py-3 text-small text-text"
+        >
+          <CircleCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-success" />
           Keanggotaanmu sudah aktif. Isi profil di bawah supaya anggota lain mudah mengenali mu.
           Semua isian boleh dikosongkan kecuali nama dan username.
         </p>
@@ -90,6 +95,7 @@ export default async function SettingsProfilePage({
           tier="tertiary"
           title="Foto"
           description="Dipakai di daftar anggota dan komentar."
+          icon={<ImagePlus className="size-5" />}
         >
           <div className="flex items-center gap-4">
             <AvatarFromPath path={profile.avatar_path} name={profile.full_name} size="lg" />
@@ -103,6 +109,7 @@ export default async function SettingsProfilePage({
           tier="primary"
           title="Informasi"
           description="Username dipakai pada tautan profil."
+          icon={<IdCard className="size-5" />}
         >
           <div className="max-w-form">
             <ProfileForm

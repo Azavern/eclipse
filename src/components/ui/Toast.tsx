@@ -101,9 +101,14 @@ export function Toaster() {
       {current.map((item) => (
         <div
           key={item.id}
-          className="pointer-events-auto flex items-start gap-3 rounded-md border border-success bg-surface px-3 py-2 text-small"
+          // Notifikasi muncul dengan satu gerakan kecil (DESIGN.md Appendix E),
+          // lalu berhenti. Reduced motion mematikan animasinya lewat aturan
+          // global di globals.css.
+          className="animate-rise pointer-events-auto flex items-start gap-3 rounded-lg border border-success-edge bg-success-soft px-3 py-2.5 text-small shadow-high"
         >
-          <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
+          <span className="icon-tile icon-tile-success mt-0.5 size-6" aria-hidden="true">
+            <CheckCircle2 className="size-3.5" />
+          </span>
           <p className="flex-1 text-text">{item.message}</p>
           <button
             type="button"

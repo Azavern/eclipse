@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { Eye, Palette, SlidersHorizontal, Users } from 'lucide-react';
 import { getViewer, requireView, canShow } from '@/lib/visibility/server';
 import { getClassIdentity, getClassTheme } from '@/features/class/queries';
 import { HOME_LAYOUTS, mobileOrderClass } from '@/features/home/layouts';
@@ -121,7 +122,7 @@ export default async function HomePage() {
   };
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8 lg:gap-10">
       {/*
         Pengelola kelas mendapat pintu masuk ke halaman yang bisa ia ubah.
         Ditaruh di atas, bukan di bawah, karena halaman ini bisa panjang.
@@ -129,17 +130,24 @@ export default async function HomePage() {
       {viewer.can('class.manage') ? (
         <Section
           tier="secondary"
+          tone="band"
           title="Kelola kelas"
           description="Pintu masuk ke semua halaman yang bisa kamu ubah. Halaman lain di menu samping dipakai untuk melihat dan mengelola isi; pengaturan kelas ada di halaman Kelas."
+          icon={<SlidersHorizontal className="size-5" />}
         >
           <div className="flex flex-wrap gap-2">
-            <ButtonLink href="/class">Atur tampilan kelas</ButtonLink>
+            <ButtonLink href="/class">
+              <Palette aria-hidden="true" className="size-4" />
+              Atur tampilan kelas
+            </ButtonLink>
             {viewer.can('members.manage') ? (
               <ButtonLink href="/settings/members" variant="secondary">
+                <Users aria-hidden="true" className="size-4" />
                 Kelola anggota
               </ButtonLink>
             ) : null}
             <ButtonLink href="/settings/visibility" variant="secondary">
+              <Eye aria-hidden="true" className="size-4" />
               Aturan visibilitas
             </ButtonLink>
           </div>

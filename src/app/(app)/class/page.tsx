@@ -1,3 +1,4 @@
+import { Eye, ImagePlus, Link2, Settings2 } from 'lucide-react';
 import { requireView, canShow, getViewer } from '@/lib/visibility/server';
 import { getClassIdentity, getEditableClass, getClassLinks } from '@/features/class/queries';
 import { ClassIdentityForm } from '@/features/class/components/ClassIdentityForm';
@@ -86,6 +87,7 @@ export default async function ClassPage() {
             tier="primary"
             title="Identitas kelas"
             description="Nama, kode, tagline, deskripsi, sorotan, dan zona waktu yang dipakai semua halaman."
+            icon={<Settings2 className="size-5" />}
           >
             <div className="max-w-form">
               <ClassIdentityForm
@@ -106,6 +108,7 @@ export default async function ClassPage() {
             tier="secondary"
             title="Gambar kelas"
             description="Logo dipakai di sidebar dan halaman masuk; cover dipakai sebagai latar beranda."
+            icon={<ImagePlus className="size-5" />}
           >
             <div className="flex flex-col gap-8">
               <div className="flex max-w-md flex-col gap-3">
@@ -116,7 +119,10 @@ export default async function ClassPage() {
                   height={96}
                   className="size-24 rounded-lg border border-border-subtle object-contain"
                   fallback={
-                    <div className="flex size-24 items-center justify-center rounded-lg border border-border-subtle text-caption text-text-muted">
+                    // Placeholder kosong tidak boleh jadi kotak abu-abu tanpa
+                    // isi (DESIGN.md §6): ia membawa ikon dan kalimat kecil.
+                    <div className="flex size-24 flex-col items-center justify-center gap-1 rounded-lg border border-border-subtle bg-band text-caption text-text-muted">
+                      <ImagePlus aria-hidden="true" className="size-6" />
                       Belum ada logo
                     </div>
                   }
@@ -136,7 +142,8 @@ export default async function ClassPage() {
                   height={320}
                   className="h-40 w-full rounded-lg border border-border-subtle object-cover"
                   fallback={
-                    <div className="flex h-40 w-full items-center justify-center rounded-lg border border-border-subtle text-caption text-text-muted">
+                    <div className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border-subtle bg-band text-caption text-text-muted">
+                      <ImagePlus aria-hidden="true" className="size-8" />
                       Belum ada cover
                     </div>
                   }
@@ -154,6 +161,7 @@ export default async function ClassPage() {
             tier="secondary"
             title="Tautan kontak kelas"
             description="Media sosial dan kontak kelas. Tautan yang tampil ke pengunjung tetap mengikuti aturan visibilitas."
+            icon={<Link2 className="size-5" />}
           >
             <ClassLinksEditor
               links={visibleLinks.map((l) => ({
@@ -173,8 +181,10 @@ export default async function ClassPage() {
       */}
       <Section
         tier="tertiary"
+        tone="band"
         title="Tampilan publik"
         description="Inilah yang dilihat pengunjung yang belum masuk."
+        icon={<Eye className="size-5" />}
       >
         <div className="flex flex-col gap-4">
           {identity.cover_path ? (

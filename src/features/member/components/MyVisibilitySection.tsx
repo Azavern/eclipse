@@ -1,4 +1,11 @@
 import { getMemberVisibilityRules, getViewer, getVisibilityMap } from '@/lib/visibility/server';
+import {
+  MEMBER_SCOPE_KEYS,
+  toAudienceLevel,
+  type Audience,
+  type VisibilityKey,
+} from '@/lib/visibility/registry';
+import { Eye } from 'lucide-react';
 import { Section } from '@/components/ui/Section';
 import { MemberVisibilityEditor, type MemberSelectionMap } from './MemberVisibilityEditor';
 
@@ -15,13 +22,15 @@ export async function MyVisibilitySection() {
 
   const [map, ownRules] = await Promise.all([
     getVisibilityMap(),
-    viewer.userId ? getMemberVisibilityRules(viewer.userId) : Promise.resolve({}),
+    viewer.userId
+      ? getMemberVisibilityRules(viewer.userId)
+      : Promise.resolve({} as Partial<Record<VisibilityKey, Audience>>),
   ]);
 
-  // Nilai kosong berarti "pakai bawaan katalog", jadi Select menampilkan opsi
-  // bawaan dan bukan nilai effective yang sudah dipangkas.
+  // Setiap key diisi: aturan milik anggota bila ada, kalau tidak level yang
+  // berlaku di tingkat kelas. Tidak ada lagi opsi "ikut aturan bawaan".
   const initial = Object.fromEntries(
-    Object.entries(ownRules).map(([key, audience]) => [key, audience ?? '']),
+    MEMBER_SCOPE_KEYS.map((key) => [key, toAudienceLevel(ownRules[key] ?? map[key].own)]),
   ) as MemberSelectionMap;
 
   return (
@@ -29,6 +38,7 @@ export async function MyVisibilitySection() {
       tier="secondary"
       title="Visibilitas profil"
       description="Atur siapa yang boleh melihat bagian profilmu. Aturan kelas tetap menjadi batas terluar."
+      icon={<Eye className="size-5" />}
     >
       <div className="max-w-form">
         <MemberVisibilityEditor initial={initial} map={map} />

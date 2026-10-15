@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useSyncExternalStore } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { confirmAccessLink } from '@/features/auth/actions';
 import { FormStatus } from '@/components/ui/FormStatus';
 import { SubmitButton } from '@/components/ui/SubmitButton';
@@ -89,7 +90,11 @@ export function ConfirmAccessForm() {
       ) : null}
 
       {complete && !ready && !rejected ? (
-        <p role="alert" className="rounded-md border border-error px-3 py-2 text-small text-error">
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-error-edge bg-error-soft px-3 py-2 text-small text-text"
+        >
+          <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-error" />
           Tautan ini tidak lengkap. Minta Ketua membuka tautan akses langsung dari pesan yang
           dikirimkannya.
         </p>

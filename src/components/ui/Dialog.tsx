@@ -72,7 +72,9 @@ export function Dialog({
         event.preventDefault();
         onClose();
       }}
-      className="m-0 max-h-full w-full max-w-lg bg-surface p-0 text-text backdrop:bg-black/40 backdrop:backdrop-blur-[2px] md:m-auto md:rounded-lg md:p-0 open:flex open:flex-col"
+      // Layar penuh di mobile, mengambang di tablet/desktop (blueprint §16).
+      // Lapis elevated tertinggi (DESIGN.md §6): bayangan besar + gerakan masuk.
+      className="animate-rise m-0 max-h-full w-full max-w-lg bg-surface p-0 text-text shadow-high backdrop:bg-black/40 backdrop:backdrop-blur-[2px] md:m-auto md:rounded-lg md:p-0 open:flex open:flex-col"
     >
       <div className="flex items-start justify-between gap-4 border-b border-border-subtle p-4">
         <div className="flex flex-col gap-1">

@@ -3,16 +3,32 @@ import type { ReactNode } from 'react';
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
 /**
- * Badge selalu ikon + teks, tidak pernah titik warna atau warna saja.
- * Bentuknya kotak sudut tumpul (radius-sm), bukan kapsul bulat, agar konsisten
- * dengan karakter editorial sistem desain.
+ * Badge status: bentuk seragam (ikon + teks) dengan latar ber-tint dan garis
+ * senada (DESIGN.md §6, „status chips“).
+ *
+ * Teksnya sengaja memakai `--color-text`, bukan warna hue-nya. ThemeSchema
+ * hanya menjamin warna semantik kelas kontras ≥4.5:1 terhadap `surface` dan
+ * `background` — duduk di atas latar ber-tint akan menurunkannya sedikit, dan
+ * untuk palet kelas yang persis di ambang batas itu berarti jatuh di bawah AA.
+ * Hue-nya tetap terbaca dari tiga tempat: latar tint, garis, dan ikon. Ikon
+ * dihitung sebagai grafik bermakna, jadi ambangnya 3:1 (DESIGN.md §10), dan
+ * ambang itu tetap terpenuhi.
  */
 const TONES: Record<BadgeTone, string> = {
-  neutral: 'border-control-border text-text-muted bg-surface',
-  info: 'border-secondary text-secondary bg-surface',
-  success: 'border-success text-success bg-surface',
-  warning: 'border-warning text-warning bg-surface',
-  danger: 'border-error text-error bg-surface',
+  neutral: 'border-border-strong bg-surface-dim text-text',
+  info: 'border-info-edge bg-info-soft text-text',
+  success: 'border-success-edge bg-success-soft text-text',
+  warning: 'border-warning-edge bg-warning-soft text-text',
+  danger: 'border-error-edge bg-error-soft text-text',
+};
+
+/** Warna ikon mengikuti hue-nya, bukan warna teks badge. */
+const ICON_TONES: Record<BadgeTone, string> = {
+  neutral: 'text-text-muted',
+  info: 'text-secondary',
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-error',
 };
 
 export function Badge({
@@ -29,9 +45,13 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-caption font-semibold ${TONES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-caption font-semibold ${TONES[tone]} ${className}`}
     >
-      {icon ? <span aria-hidden="true" className="inline-flex">{icon}</span> : null}
+      {icon ? (
+        <span aria-hidden="true" className={`inline-flex ${ICON_TONES[tone]}`}>
+          {icon}
+        </span>
+      ) : null}
       {children}
     </span>
   );

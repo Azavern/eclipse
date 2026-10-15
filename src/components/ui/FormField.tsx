@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { VisuallyHidden } from './VisuallyHidden';
 
 /**
  * Pembungkus label + kontrol + hint/error.
  *
- * Aturan a11y (§17.7): setiap input punya label terprogram, dan pesan error
- * terhubung lewat aria-describedby. "Wajib" ditulis sebagai teks, bukan hanya
- * warna, agar tidak bergantung pada penyebab warna.
+ * Aturan a11y (DESIGN.md §10): setiap input punya label terprogram, dan pesan
+ * error terhubung lewat aria-describedby. "Wajib" ditulis sebagai teks, bukan
+ * hanya warna, agar tidak bergantung pada warna saja.
  */
 export function FormField({
   id,
@@ -28,7 +29,7 @@ export function FormField({
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-label font-semibold text-text">
         {label}
         {required ? (
@@ -50,7 +51,11 @@ export function FormField({
       {children(describedBy)}
 
       {error ? (
-        <p id={errorId} className="text-small text-error">
+        // Pesannya memakai token teks, bukan warna galat, supaya tetap ≥4.5:1
+        // untuk palet kelas mana pun; statusnya dibawa oleh ikon di sebelahnya
+        // (DESIGN.md §10: warna bukan satu-satunya pembawa makna).
+        <p id={errorId} className="flex items-start gap-1.5 text-small text-text">
+          <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-error" />
           {error}
         </p>
       ) : null}
